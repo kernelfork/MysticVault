@@ -42,10 +42,7 @@ public class SyncManager
         _cts = new CancellationTokenSource();
         Task.Run(() => AcceptRequests(_cts.Token));
 
-        string base64Key = Convert.ToBase64String(_ephemeralKey);
-        base64Key = Uri.EscapeDataString(base64Key);
-        
-        return $"{url}#key={base64Key}";
+        return url;
     }
 
     public void StopServer()
@@ -120,7 +117,7 @@ public class SyncManager
 
             if (path == "/")
             {
-                responseBody = GetHtmlApp();
+                responseBody = GetHtmlApp(Convert.ToBase64String(_ephemeralKey!));
                 contentType = "text/html";
             }
             else if (path == "/api/vault")
@@ -201,9 +198,9 @@ public class SyncManager
         return JsonSerializer.Serialize(payload);
     }
 
-    private string GetHtmlApp()
+    private string GetHtmlApp(string b64Key)
     {
-        return @"<!DOCTYPE html>
+        var html = @"<!DOCTYPE html>
 <html lang=""en"">
 <head>
     <meta charset=""UTF-8"">
@@ -228,18 +225,11 @@ public class SyncManager
     <div id=""vault"">Loading secure vault...</div>
 
     <script>
+        const B64_KEY = ""___KEY___"";
+
         async function init() {
-            const hash = window.location.hash;
-            if (!hash.startsWith('#key=')) {
-                document.getElementById('vault').innerText = ""Error: No decryption key found in URL."";
-                return;
-            }
-            
             try {
-                history.replaceState(null, """", "" "");
-                
-                const b64Key = decodeURIComponent(hash.substring(5));
-                const keyStr = atob(b64Key);
+                const keyStr = atob(B64_KEY);
                 const keyBuf = new Uint8Array(keyStr.length);
                 for(let i=0; i<keyStr.length; i++) keyBuf[i] = keyStr.charCodeAt(i);
                 
@@ -349,5 +339,6 @@ public class SyncManager
     </script>
 </body>
 </html>";
+        return html.Replace("___KEY___", b64Key);
     }
 }
