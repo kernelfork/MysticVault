@@ -37,6 +37,11 @@ MysticVault is designed to give you absolute control over your digital security.
 2. **Auto-Types on Command**: Pressing a global hotkey summons the app so you can search and inject your passwords directly into other apps or browsers without copy-pasting.
 3. **Beams to your Phone**: It features an ingenious zero-knowledge local Wi-Fi sync that lets you securely transfer your vault to your mobile browser without sending the decryption key over the network.
 4. **Resists Malware**: It actively defends against infostealers by combining Argon2id hashing with Windows DPAPI, ensuring your vault can't be opened on another machine even if it's stolen.
+5. **Anti-Screenshot Protection**: The app window is mathematically blacked out from the OS. It is physically invisible to screen recording software, background screenshot spyware, and screen-sharing tools.
+6. **Bypasses Keyloggers**: By utilizing low-level simulated keystrokes for auto-typing, it completely bypasses the Windows clipboard. Your passwords are injected directly into target applications, rendering clipboard-monitoring malware blind.
+7. **Runs Invisibly**: It can be minimized directly to your Windows System Tray, allowing the global hotkey listener to stay active indefinitely without cluttering your taskbar.
+8. **Secure Browser Import**: It can securely decrypt and import your existing passwords directly from the local encrypted databases of Chrome, Edge, Brave, and Zen Browser without ever needing a vulnerable plaintext CSV export.
+9. **Idle Auto-Lock**: It monitors your global system activity and will automatically seal the vault if you step away from your computer for 5 minutes.
 
 ### How it Works
 Under the hood, MysticVault is powered by .NET 8 and WPF. The cryptography engine leverages `System.Security.Cryptography` to perform AES-256-GCM encryption. When you launch the app, we utilize native `user32.dll` hooks to capture global keyboard shortcuts, and `SendInput` to simulate physical keystrokes for auto-typing. The mobile sync spins up a localized `TcpListener` that hosts a bespoke Single-Page Application (SPA), using the URL `#fragment` trick to pass the raw AES decryption key directly into the device's hardware, fully bypassing network interception.
