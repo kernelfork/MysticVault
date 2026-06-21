@@ -92,7 +92,6 @@ public class VaultManager
         if (vaultFile.PasswordEncryptedMasterKey == null || vaultFile.DpapiEncryptedMasterKey == null)
             return UnlockResult.CorruptFile;
 
-        // Force DPAPI Hardware Binding Check
         try
         {
             byte[] dpapiTest = Convert.FromBase64String(vaultFile.DpapiEncryptedMasterKey);

@@ -228,7 +228,6 @@ public class SyncManager
             }
             
             try {
-                // Wipe key from browser history immediately to prevent key leakage
                 history.replaceState(null, """", "" "");
                 
                 const b64Key = decodeURIComponent(hash.substring(5));

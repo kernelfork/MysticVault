@@ -26,8 +26,8 @@ To build a standalone executable:
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
 
-## AI OVERVIEW
-*Here is an AI breakdown of the architecture, detailing exactly what this repository offers and how it operates securely under the hood:*
+## Overview
+*Here is a breakdown of the architecture, detailing exactly what this repository offers and how it operates securely under the hood:*
 
 ### What it Offers
 MysticVault is designed to give you absolute control over your digital security. In a world where every password manager wants you to pay a monthly subscription to host your most sensitive data on their cloud servers, MysticVault takes the opposite approach. It is a strictly offline, self-hosted, un-hackable fortress that lives purely on your hardware. 
