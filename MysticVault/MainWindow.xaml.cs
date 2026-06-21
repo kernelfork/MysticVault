@@ -722,6 +722,10 @@ public partial class MainWindow : Window
                 MessageBox.Show("No passwords found in browsers, or access was blocked.", "MysticVault", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
+        catch (AppBoundEncryptionException)
+        {
+            MessageBox.Show("A browser (e.g. Chrome v127+) has locked down direct password access with App-Bound Encryption to prevent malware from stealing passwords.\n\nTo import your passwords, please use the browser's built-in 'Export to CSV' feature.", "App-Bound Encryption Detected", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
         catch (Exception ex)
         {
             MessageBox.Show($"Extraction error: {ex.Message}", "MysticVault", MessageBoxButton.OK, MessageBoxImage.Error);
