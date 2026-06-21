@@ -16,7 +16,7 @@ A desktop-native, strictly offline password manager for Windows built with WPF a
 You'll need the [.NET 8 SDK](https://dotnet.microsoft.com/).
 
 ```cmd
-git clone https://github.com/YourUsername/MysticVault.git
+git clone https://github.com/kernelfork/MysticVault.git
 cd MysticVault
 dotnet build -c Release
 ```
