@@ -460,6 +460,72 @@ public partial class MainWindow : Window
     {
         GeneratorOverlay.Visibility = Visibility.Collapsed;
     }
+    private string _vkPassword = "";
+    
+    private void ToggleVirtualKeyboard_Click(object sender, RoutedEventArgs e)
+    {
+        _vkPassword = "";
+        UpdateVKPreview();
+        GenerateRandomKeyboard();
+        VirtualKeyboardOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void GenerateRandomKeyboard()
+    {
+        var keys = new System.Collections.Generic.List<string>();
+        for (char c = 'a'; c <= 'z'; c++) keys.Add(c.ToString());
+        for (char c = 'A'; c <= 'Z'; c++) keys.Add(c.ToString());
+        for (char c = '0'; c <= '9'; c++) keys.Add(c.ToString());
+        string symbols = "!@#$%^&*()_+-=[]{}|;:,.<>?";
+        foreach (char c in symbols) keys.Add(c.ToString());
+
+        int n = keys.Count;
+        while (n > 1)
+        {
+            int k = System.Security.Cryptography.RandomNumberGenerator.GetInt32(n);
+            n--;
+            string value = keys[k];
+            keys[k] = keys[n];
+            keys[n] = value;
+        }
+
+        VirtualKeyboardItems.ItemsSource = keys;
+    }
+
+    private void VirtualKey_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Content is string key)
+        {
+            _vkPassword += key;
+            UpdateVKPreview();
+        }
+    }
+
+    private void VKClear_Click(object sender, RoutedEventArgs e)
+    {
+        _vkPassword = "";
+        UpdateVKPreview();
+    }
+
+    private void VKDone_Click(object sender, RoutedEventArgs e)
+    {
+        MasterPasswordBox.Password = _vkPassword;
+        _vkPassword = "";
+        UpdateVKPreview();
+        VirtualKeyboardOverlay.Visibility = Visibility.Collapsed;
+    }
+
+    private void UpdateVKPreview()
+    {
+        VKPasswordPreview.Text = new string('•', _vkPassword.Length);
+    }
+
+    private void VirtualKeyboardBackdrop_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _vkPassword = "";
+        VirtualKeyboardOverlay.Visibility = Visibility.Collapsed;
+    }
+
     private void GeneratorBackdrop_MouseDown(object sender, MouseButtonEventArgs e)
         => CloseGenerator();
     private void LengthSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)

@@ -378,7 +378,17 @@
                                 <TextBlock x:Name="LockTitleText" Text="Unlock MysticVault"
                                            Style="{StaticResource HeadingText}" Margin="0,0,0,24" HorizontalAlignment="Center"/>
                                 <TextBlock Text="MASTER PASSWORD" Style="{StaticResource LabelText}"/>
-                                <PasswordBox x:Name="MasterPasswordBox" Margin="0,0,0,14"/>
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <PasswordBox x:Name="MasterPasswordBox" Grid.Column="0"/>
+                                    <Button Grid.Column="1" Style="{StaticResource IconButton}" Margin="8,0,0,0"
+                                            Click="ToggleVirtualKeyboard_Click" ToolTip="Virtual Keyboard (Anti-Keylogger)">
+                                        <TextBlock Text="⌨" FontSize="16" Foreground="{StaticResource AccentBrush}" VerticalAlignment="Center"/>
+                                    </Button>
+                                </Grid>
                                 <TextBlock x:Name="ConfirmLabel" Text="CONFIRM MASTER PASSWORD"
                                            Style="{StaticResource LabelText}" Visibility="Collapsed"/>
                                 <PasswordBox x:Name="ConfirmPasswordBox" Margin="0,0,0,14" Visibility="Collapsed"/>
@@ -709,6 +719,62 @@
                                         </Button>
                                         <Button Grid.Column="1" Margin="6,0,0,0" Click="UseGeneratedPassword_Click">
                                             <TextBlock Text="Use Password" Foreground="White" FontSize="12" FontWeight="SemiBold"/>
+                                        </Button>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                        <Grid x:Name="VirtualKeyboardOverlay" Visibility="Collapsed">
+                            <Border Background="#60000000" CornerRadius="12" MouseDown="VirtualKeyboardBackdrop_MouseDown"/>
+                            <Border Width="450" CornerRadius="16" Padding="24"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
+                                    Effect="{StaticResource CardShadow}">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#1E1440" Offset="0"/>
+                                        <GradientStop Color="#161030" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <StackPanel>
+                                    <TextBlock Text="Secure Virtual Keyboard" Style="{StaticResource HeadingText}"
+                                               FontSize="17" Margin="0,0,0,8"/>
+                                    <TextBlock Text="Bypasses physical keyloggers. Keys are randomized on every open."
+                                               Foreground="{StaticResource SubtleTextBrush}" FontSize="12" Margin="0,0,0,16" TextWrapping="Wrap"/>
+                                    
+                                    <Border Background="#120A25" CornerRadius="10" Padding="14,12" Margin="0,0,0,16">
+                                        <TextBlock x:Name="VKPasswordPreview" Text=""
+                                                   FontFamily="Cascadia Mono, Consolas, Courier New"
+                                                   Foreground="{StaticResource AccentLightBrush}"
+                                                   FontSize="15" TextWrapping="Wrap" TextAlignment="Center"/>
+                                    </Border>
+
+                                    <!-- Dynamic Keyboard Grid -->
+                                    <ItemsControl x:Name="VirtualKeyboardItems">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" MaxWidth="400"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button Content="{Binding}" Width="32" Height="32" Margin="2"
+                                                        Style="{StaticResource OutlineButton}" Padding="0"
+                                                        Click="VirtualKey_Click" FontSize="14" FontWeight="SemiBold"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <Grid Margin="0,16,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" Style="{StaticResource DangerOutlineButton}" Margin="0,0,6,0" Click="VKClear_Click">
+                                            <TextBlock Text="Clear" FontSize="13"/>
+                                        </Button>
+                                        <Button Grid.Column="1" Margin="6,0,0,0" Click="VKDone_Click">
+                                            <TextBlock Text="Done" Foreground="White" FontSize="13" FontWeight="SemiBold"/>
                                         </Button>
                                     </Grid>
                                 </StackPanel>
