@@ -121,11 +121,13 @@ public partial class MiniSearchWindow : Window
 
         if (_vault.Entries.TryGetValue(siteName, out var entry))
         {
-            string password = entry.GetPassword();
-            await InputSimulator.TypeTextAsync(entry.Username);
-            await InputSimulator.SendKeyAsync(InputSimulator.VK_TAB);
-            await InputSimulator.TypeTextAsync(password);
-            await InputSimulator.SendKeyAsync(InputSimulator.VK_RETURN);
+            await entry.UsePasswordAsync(async password =>
+            {
+                await InputSimulator.TypeTextAsync(entry.Username);
+                await InputSimulator.SendKeyAsync(InputSimulator.VK_TAB);
+                await InputSimulator.TypeTextAsync(password);
+                await InputSimulator.SendKeyAsync(InputSimulator.VK_RETURN);
+            });
         }
     }
     

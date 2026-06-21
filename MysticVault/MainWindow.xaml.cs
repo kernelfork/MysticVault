@@ -11,6 +11,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 namespace MysticVault;
+
 public partial class MainWindow : Window
 {
     private readonly VaultManager _vault = new();
@@ -21,6 +22,8 @@ public partial class MainWindow : Window
     private System.Windows.Forms.NotifyIcon? _notifyIcon;
     private bool _isActuallyClosing = false;
     private string? _loadedSite;
+    private Entry? _loadedEntry;
+    private bool _passwordNotYetDecrypted;
     private bool _passwordRevealed;
     private bool _suppressPasswordSync;
     private int _generatorLength = 20;
@@ -29,16 +32,17 @@ public partial class MainWindow : Window
     private bool _useDigits = true;
     private bool _useSymbols = true;
     private string _generatedPassword = "";
+    private const string PasswordPlaceholder = "••••••••••••••••••••";
     private static readonly System.Windows.Media.Color[] AvatarPalette =
     {
-        Color.FromRgb(0xE9, 0x1E, 0x63), 
-        Color.FromRgb(0x9C, 0x27, 0xB0), 
-        Color.FromRgb(0x67, 0x3A, 0xB7), 
-        Color.FromRgb(0x3F, 0x51, 0xB5), 
-        Color.FromRgb(0x21, 0x96, 0xF3), 
-        Color.FromRgb(0x00, 0xBC, 0xD4), 
-        Color.FromRgb(0x00, 0x96, 0x88), 
-        Color.FromRgb(0xFF, 0x57, 0x22), 
+        Color.FromRgb(0xE9, 0x1E, 0x63),
+        Color.FromRgb(0x9C, 0x27, 0xB0),
+        Color.FromRgb(0x67, 0x3A, 0xB7),
+        Color.FromRgb(0x3F, 0x51, 0xB5),
+        Color.FromRgb(0x21, 0x96, 0xF3),
+        Color.FromRgb(0x00, 0xBC, 0xD4),
+        Color.FromRgb(0x00, 0x96, 0x88),
+        Color.FromRgb(0xFF, 0x57, 0x22),
     };
     private class SiteDisplayItem
     {
@@ -54,7 +58,7 @@ public partial class MainWindow : Window
         UpdateLockScreenForVaultState();
         SetupSystemTray();
         Deactivated += MainWindow_Deactivated;
-        Closing += (_, e) => 
+        Closing += (_, e) =>
         {
             if (!_isActuallyClosing)
             {
@@ -108,6 +112,26 @@ public partial class MainWindow : Window
         GlobalHotkeyManager.Start(OnAutoTypeTriggered);
     }
 
+    protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer()
+        => new NullWindowAutomationPeer(this);
+
+    private sealed class NullWindowAutomationPeer : System.Windows.Automation.Peers.FrameworkElementAutomationPeer
+    {
+        public NullWindowAutomationPeer(FrameworkElement owner) : base(owner) { }
+
+        protected override System.Collections.Generic.List<System.Windows.Automation.Peers.AutomationPeer>? GetChildrenCore()
+            => null;
+
+        protected override bool IsControlElementCore() => false;
+
+        protected override bool IsContentElementCore() => false;
+
+        protected override string GetNameCore() => string.Empty;
+
+        protected override System.Windows.Automation.Peers.AutomationControlType GetAutomationControlTypeCore()
+            => System.Windows.Automation.Peers.AutomationControlType.Pane;
+    }
+
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
     private static extern bool GetCursorPos(out POINT lpPoint);
@@ -125,7 +149,7 @@ public partial class MainWindow : Window
         {
             if (_miniSearchWindow == null)
                 _miniSearchWindow = new MiniSearchWindow(_vault);
-            
+
             if (GetCursorPos(out POINT pt))
             {
                 _miniSearchWindow.Left = pt.X - 200;
@@ -153,7 +177,7 @@ public partial class MainWindow : Window
                 Clipboard.Clear();
             }
             catch (System.Runtime.InteropServices.COMException) { }
-            
+
             VaultStatusText.Foreground = (Brush)FindResource("SubtleTextBrush");
             VaultStatusText.Text = "Clipboard cleared for security.";
         }
@@ -199,7 +223,7 @@ public partial class MainWindow : Window
             Close();
             System.Windows.Application.Current.Shutdown();
         });
-        
+
         _notifyIcon.ContextMenuStrip = contextMenu;
     }
 
@@ -227,7 +251,7 @@ public partial class MainWindow : Window
         ConfirmLabel.Visibility = vaultExists ? Visibility.Collapsed : Visibility.Visible;
         ConfirmPasswordBox.Visibility = vaultExists ? Visibility.Collapsed : Visibility.Visible;
     }
-    private void UnlockButton_Click(object sender, RoutedEventArgs e)
+    private async void UnlockButton_Click(object sender, RoutedEventArgs e)
     {
         StatusText.Text = "";
         if (MasterPasswordBox.SecurePassword == null || MasterPasswordBox.SecurePassword.Length == 0)
@@ -235,9 +259,11 @@ public partial class MainWindow : Window
             StatusText.Text = "Enter a master password.";
             return;
         }
+        UnlockButton.IsEnabled = false;
+        UnlockButton.Content = "Unlocking\u2026";
         if (VaultManager.VaultExists())
         {
-            var result = _vault.UnlockWithPassword(MasterPasswordBox.SecurePassword);
+            var result = await Task.Run(() => _vault.UnlockWithPassword(MasterPasswordBox.SecurePassword));
             if (result != UnlockResult.Success)
             {
                 StatusText.Text = result switch
@@ -249,6 +275,8 @@ public partial class MainWindow : Window
                     _ => "Unable to unlock."
                 };
                 MasterPasswordBox.Clear();
+                UnlockButton.IsEnabled = true;
+                UnlockButton.Content = "Unlock";
                 return;
             }
         }
@@ -257,12 +285,16 @@ public partial class MainWindow : Window
             if (MasterPasswordBox.Password != ConfirmPasswordBox.Password)
             {
                 StatusText.Text = "Passwords didn't match.";
+                UnlockButton.IsEnabled = true;
+                UnlockButton.Content = "Create Vault";
                 return;
             }
-            _vault.InitializeNewVault(MasterPasswordBox.SecurePassword);
+            await Task.Run(() => _vault.InitializeNewVault(MasterPasswordBox.SecurePassword));
         }
         MasterPasswordBox.Clear();
         ConfirmPasswordBox.Clear();
+        UnlockButton.IsEnabled = true;
+        UnlockButton.Content = VaultManager.VaultExists() ? "Unlock" : "Create Vault";
         ShowVaultPanel();
     }
 
@@ -272,7 +304,7 @@ public partial class MainWindow : Window
         {
             if (VaultManager.VaultExists())
             {
-                File.Delete("vault.dat");
+                File.Delete(VaultManager.DbFile);
                 UpdateLockScreenForVaultState();
                 MasterPasswordBox.Clear();
                 ConfirmPasswordBox.Clear();
@@ -352,10 +384,15 @@ public partial class MainWindow : Window
         if (_vault.Entries.TryGetValue(site, out Entry? entry))
         {
             _loadedSite = site;
+            _loadedEntry = entry;
             SiteTextBox.Text = site;
             WebsiteTextBox.Text = entry.Website;
             UsernameTextBox.Text = entry.Username;
-            SetPasswordFieldValue(entry.GetPassword());
+            _passwordNotYetDecrypted = true;
+            _suppressPasswordSync = true;
+            PasswordMaskedBox.Password = PasswordPlaceholder;
+            PasswordRevealedBox.Text = "";
+            _suppressPasswordSync = false;
             DetailAvatar.Background = GetAvatarBrush(site);
             DetailAvatarLetter.Text = GetAvatarLetter(site);
             DetailSiteTitle.Text = site;
@@ -389,6 +426,8 @@ public partial class MainWindow : Window
     private void ClearDetailFields()
     {
         _loadedSite = null;
+        _loadedEntry = null;
+        _passwordNotYetDecrypted = false;
         SiteTextBox.Clear();
         WebsiteTextBox.Clear();
         UsernameTextBox.Clear();
@@ -414,6 +453,8 @@ public partial class MainWindow : Window
     private void PasswordMaskedBox_PasswordChanged(object sender, RoutedEventArgs e)
     {
         if (_suppressPasswordSync) return;
+        if (_passwordNotYetDecrypted)
+            _passwordNotYetDecrypted = false;
         _suppressPasswordSync = true;
         PasswordRevealedBox.Text = PasswordMaskedBox.Password;
         _suppressPasswordSync = false;
@@ -430,16 +471,36 @@ public partial class MainWindow : Window
         _passwordRevealed = !_passwordRevealed;
         if (_passwordRevealed)
         {
-            PasswordRevealedBox.Text = PasswordMaskedBox.Password;
+            if (_passwordNotYetDecrypted && _loadedEntry != null)
+            {
+                PasswordRevealedBox.Text = _loadedEntry.GetPassword();
+                _passwordNotYetDecrypted = false;
+            }
+            else
+            {
+                PasswordRevealedBox.Text = PasswordMaskedBox.Password;
+            }
             PasswordMaskedBox.Visibility = Visibility.Collapsed;
             PasswordRevealedBox.Visibility = Visibility.Visible;
             TogglePasswordIcon.Source = new BitmapImage(new Uri("/Assets/hide.png", UriKind.Relative));
         }
         else
         {
-            PasswordMaskedBox.Password = PasswordRevealedBox.Text;
             PasswordRevealedBox.Visibility = Visibility.Collapsed;
             PasswordMaskedBox.Visibility = Visibility.Visible;
+            if (_loadedEntry != null)
+            {
+                _passwordNotYetDecrypted = true;
+                _suppressPasswordSync = true;
+                PasswordMaskedBox.Password = PasswordPlaceholder;
+                PasswordRevealedBox.Text = "";
+                _suppressPasswordSync = false;
+            }
+            else
+            {
+                PasswordMaskedBox.Password = PasswordRevealedBox.Text;
+                PasswordRevealedBox.Text = "";
+            }
             TogglePasswordIcon.Source = new BitmapImage(new Uri("/Assets/show.png", UriKind.Relative));
         }
     }
@@ -461,7 +522,7 @@ public partial class MainWindow : Window
         GeneratorOverlay.Visibility = Visibility.Collapsed;
     }
     private string _vkPassword = "";
-    
+
     private void ToggleVirtualKeyboard_Click(object sender, RoutedEventArgs e)
     {
         _vkPassword = "";
@@ -571,7 +632,7 @@ public partial class MainWindow : Window
         if (_useUppercase) sb.Append("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
         if (_useLowercase) sb.Append("abcdefghijklmnopqrstuvwxyz");
         if (_useDigits) sb.Append("0123456789");
-        if (_useSymbols) sb.Append("!@#$%^&*()-_=+");
+        if (_useSymbols) sb.Append("!@#$%^&*()-_=+[]{}|;:,.<>?/~`");
         return sb.ToString();
     }
     private static string GenerateSecurePassword(int length, string charset)
@@ -586,16 +647,27 @@ public partial class MainWindow : Window
         string site = SiteTextBox.Text.Trim();
         string websiteUrl = WebsiteTextBox.Text.Trim();
         string username = UsernameTextBox.Text.Trim();
-        string password = GetPasswordFieldValue();
         if (string.IsNullOrWhiteSpace(site))
         {
             SetVaultStatus("Site name can't be empty.", isError: true);
             return;
         }
-        if (string.IsNullOrEmpty(password))
+        string password;
+        bool passwordChanged;
+        if (_passwordNotYetDecrypted && _loadedEntry != null)
         {
-            SetVaultStatus("Password can't be empty.", isError: true);
-            return;
+            password = _loadedEntry.GetPassword();
+            passwordChanged = false;
+        }
+        else
+        {
+            password = GetPasswordFieldValue();
+            if (string.IsNullOrEmpty(password))
+            {
+                SetVaultStatus("Password can't be empty.", isError: true);
+                return;
+            }
+            passwordChanged = true;
         }
         if (_loadedSite != null && _loadedSite != site)
         {
@@ -603,6 +675,15 @@ public partial class MainWindow : Window
         }
         _vault.AddOrUpdateEntry(site, username, password, websiteUrl);
         _loadedSite = site;
+        _loadedEntry = _vault.Entries[site];
+        _passwordNotYetDecrypted = !passwordChanged;
+        if (!passwordChanged)
+        {
+            _suppressPasswordSync = true;
+            PasswordMaskedBox.Password = PasswordPlaceholder;
+            PasswordRevealedBox.Text = "";
+            _suppressPasswordSync = false;
+        }
         DetailAvatar.Background = GetAvatarBrush(site);
         DetailAvatarLetter.Text = GetAvatarLetter(site);
         DetailSiteTitle.Text = site;
@@ -620,15 +701,15 @@ public partial class MainWindow : Window
         }
         int duplicateCount = 0;
         List<string> duplicates = new();
+        byte[] newPasswordHash = SHA256.HashData(Encoding.UTF8.GetBytes(password));
         foreach (var kvp in _vault.Entries)
         {
-            if (kvp.Key != site && kvp.Value.GetPassword() == password)
+            if (kvp.Key == site) continue;
+            Entry entry = kvp.Value;
+            if (entry.PasswordHash != null && newPasswordHash.AsSpan().SequenceEqual(entry.PasswordHash))
             {
                 duplicateCount++;
-                if (duplicates.Count < 3)
-                {
-                    duplicates.Add(kvp.Key);
-                }
+                if (duplicates.Count < 3) duplicates.Add(kvp.Key);
             }
         }
         if (duplicateCount > 0)
@@ -678,7 +759,7 @@ public partial class MainWindow : Window
     {
         string url = WebsiteTextBox.Text.Trim();
         if (string.IsNullOrEmpty(url)) return;
-        if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && 
+        if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
             !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
         {
             url = "https://" + url;
@@ -692,8 +773,6 @@ public partial class MainWindow : Window
             SetVaultStatus("Could not open URL.", isError: true);
         }
     }
-    
-
 
     private void CopyUsernameButton_Click(object sender, RoutedEventArgs e)
     {
@@ -704,10 +783,49 @@ public partial class MainWindow : Window
     }
     private void CopyPasswordButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_passwordNotYetDecrypted && _loadedEntry != null)
+        {
+            _loadedEntry.UsePassword(password =>
+            {
+                if (string.IsNullOrEmpty(password)) return;
+                Clipboard.SetText(password);
+                byte[] copiedHash = SHA256.HashData(Encoding.UTF8.GetBytes(password));
+                _clipboardClearTimer?.Stop();
+                _clipboardClearTimer = new DispatcherTimer { Interval = ClipboardClearDelay };
+                _clipboardClearTimer.Tick += (_, _) =>
+                {
+                    _clipboardClearTimer!.Stop();
+                    try
+                    {
+                        if (Clipboard.ContainsText())
+                        {
+                            byte[] currentHash = SHA256.HashData(Encoding.UTF8.GetBytes(Clipboard.GetText()));
+                            if (currentHash.AsSpan().SequenceEqual(copiedHash))
+                                Clipboard.Clear();
+                        }
+                    }
+                    catch (System.Runtime.InteropServices.COMException) { }
+                };
+                _clipboardClearTimer.Start();
+                VaultStatusText.Foreground = (Brush)FindResource("SubtleTextBrush");
+                VaultStatusText.Text = $"Password copied. Clipboard will clear in {ClipboardClearDelay.TotalSeconds:N0}s.";
+            });
+            Entry.ZeroString(PasswordMaskedBox.Password);
+            _suppressPasswordSync = true;
+            PasswordMaskedBox.Password = PasswordPlaceholder;
+            PasswordRevealedBox.Text = "";
+            _suppressPasswordSync = false;
+            _passwordNotYetDecrypted = true;
+            return;
+        }
         string password = GetPasswordFieldValue();
         if (string.IsNullOrEmpty(password))
             return;
         Clipboard.SetText(password);
+
+        byte[] copiedHash = SHA256.HashData(Encoding.UTF8.GetBytes(password));
+        Entry.ZeroString(password);
+
         VaultStatusText.Foreground = (Brush)FindResource("SubtleTextBrush");
         VaultStatusText.Text = $"Password copied. Clipboard will clear in {ClipboardClearDelay.TotalSeconds:N0}s.";
         _clipboardClearTimer?.Stop();
@@ -717,8 +835,12 @@ public partial class MainWindow : Window
             _clipboardClearTimer!.Stop();
             try
             {
-                if (Clipboard.ContainsText() && Clipboard.GetText() == password)
-                    Clipboard.Clear();
+                if (Clipboard.ContainsText())
+                {
+                    byte[] currentHash = SHA256.HashData(Encoding.UTF8.GetBytes(Clipboard.GetText()));
+                    if (currentHash.AsSpan().SequenceEqual(copiedHash))
+                        Clipboard.Clear();
+                }
             }
             catch (System.Runtime.InteropServices.COMException)
             {
@@ -733,6 +855,15 @@ public partial class MainWindow : Window
             SetVaultStatus("Vault is empty. Nothing to export.", isError: true);
             return;
         }
+        var confirm = MessageBox.Show(
+            "WARNING: The export file will contain all your passwords in UNENCRYPTED PLAINTEXT.\n\n" +
+            "Anyone who gains access to this file can read every password in your vault.\n\n" +
+            "You are solely responsible for securing and immediately deleting this file after use.\n\n" +
+            "Do you want to continue?",
+            "Security Warning — Plaintext Export",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes) return;
         var dialog = new SaveFileDialog
         {
             Filter = "JSON files (*.json)|*.json",
@@ -846,7 +977,7 @@ public partial class MainWindow : Window
             MessageBox.Show("Please unlock MysticVault first.", "Vault Locked", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        
+
         var syncWindow = new SyncWindow(_vault);
         syncWindow.Owner = this;
         syncWindow.ShowDialog();

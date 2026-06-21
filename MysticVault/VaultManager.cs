@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -18,7 +19,7 @@ public enum UnlockResult
 
 public class VaultManager
 {
-    private const string DbFile = "vault.dat";
+    internal const string DbFile = "vault.dat";
     private const int SaltSizeBytes = 16;
     private const int KeySizeBytes = 32;
     private const int NonceSizeBytes = 12;
@@ -36,6 +37,11 @@ public class VaultManager
 
     private byte[]? _masterKey;
     private Dictionary<string, Entry> _entries = new();
+    private byte[]? _cachedSalt;
+    private byte[]? _cachedPassNonce;
+    private byte[]? _cachedPassTag;
+    private byte[]? _cachedPassEncryptedKey;
+    private byte[]? _cachedDpapiEncryptedKey;
 
     public bool IsUnlocked => _masterKey != null;
     public static bool VaultExists() => File.Exists(DbFile);
@@ -48,7 +54,11 @@ public class VaultManager
             var vaultFile = JsonSerializer.Deserialize<VaultFile>(json);
             return vaultFile?.DpapiEncryptedMasterKey != null;
         }
-        catch { return false; }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"HasPasskey: {ex.GetType().Name}: {ex.Message}");
+            return false;
+        }
     }
     public IReadOnlyDictionary<string, Entry> Entries => _entries;
 
@@ -75,6 +85,12 @@ public class VaultManager
         _masterKey = vaultMasterKey;
         CryptProtectMemory(_masterKey, (uint)_masterKey.Length, CRYPTPROTECTMEMORY_SAME_PROCESS);
         _entries = new Dictionary<string, Entry>();
+
+        _cachedSalt = salt;
+        _cachedPassNonce = passNonce;
+        _cachedPassTag = passTag;
+        _cachedPassEncryptedKey = passEncryptedKey;
+        _cachedDpapiEncryptedKey = dpapiEncryptedKey;
 
         Save(salt, passNonce, passTag, passEncryptedKey, dpapiEncryptedKey);
     }
@@ -140,6 +156,11 @@ public class VaultManager
             _entries = Decrypt(vaultFile, vaultMasterKey);
             _masterKey = vaultMasterKey;
             CryptProtectMemory(_masterKey, (uint)_masterKey.Length, CRYPTPROTECTMEMORY_SAME_PROCESS);
+            _cachedSalt = salt;
+            _cachedPassNonce = passNonce;
+            _cachedPassTag = passTag;
+            _cachedPassEncryptedKey = passEncryptedKey;
+            _cachedDpapiEncryptedKey = vaultFile.DpapiEncryptedMasterKey != null ? Convert.FromBase64String(vaultFile.DpapiEncryptedMasterKey) : null;
             return UnlockResult.Success;
         }
         catch
@@ -185,11 +206,21 @@ public class VaultManager
             return UnlockResult.CorruptFile;
         }
 
+        byte[] passSalt = Convert.FromBase64String(vaultFile.Salt);
+        byte[] passNonce = Convert.FromBase64String(vaultFile.PasswordNonce!);
+        byte[] passTag = Convert.FromBase64String(vaultFile.PasswordTag!);
+        byte[] passEncryptedKey = Convert.FromBase64String(vaultFile.PasswordEncryptedMasterKey!);
+
         try
         {
             _entries = Decrypt(vaultFile, vaultMasterKey);
             _masterKey = vaultMasterKey;
             CryptProtectMemory(_masterKey, (uint)_masterKey.Length, CRYPTPROTECTMEMORY_SAME_PROCESS);
+            _cachedSalt = passSalt;
+            _cachedPassNonce = passNonce;
+            _cachedPassTag = passTag;
+            _cachedPassEncryptedKey = passEncryptedKey;
+            _cachedDpapiEncryptedKey = vaultFile.DpapiEncryptedMasterKey != null ? Convert.FromBase64String(vaultFile.DpapiEncryptedMasterKey) : null;
             return UnlockResult.Success;
         }
         catch
@@ -203,25 +234,35 @@ public class VaultManager
     {
         if (_masterKey == null) throw new InvalidOperationException("Vault is locked");
 
-        VaultFile currentVault;
-        try
-        {
-            string json = File.ReadAllText(DbFile);
-            currentVault = JsonSerializer.Deserialize<VaultFile>(json) ?? throw new InvalidOperationException();
-        }
-        catch { throw new InvalidOperationException("Failed to read existing vault header"); }
+        byte[]? salt = _cachedSalt;
+        byte[]? passNonce = _cachedPassNonce;
+        byte[]? passTag = _cachedPassTag;
+        byte[]? passEncryptedKey = _cachedPassEncryptedKey;
+        byte[]? dpapiEncryptedKey = _cachedDpapiEncryptedKey;
 
-        byte[] salt = Convert.FromBase64String(currentVault.Salt);
-        byte[] passNonce = Convert.FromBase64String(currentVault.PasswordNonce!);
-        byte[] passTag = Convert.FromBase64String(currentVault.PasswordTag!);
-        byte[] passEncryptedKey = Convert.FromBase64String(currentVault.PasswordEncryptedMasterKey!);
-        
-        byte[]? dpapiEncryptedKey = currentVault.DpapiEncryptedMasterKey != null ? Convert.FromBase64String(currentVault.DpapiEncryptedMasterKey) : null;
+        if (salt == null || passNonce == null || passTag == null || passEncryptedKey == null)
+        {
+            VaultFile currentVault;
+            try
+            {
+                string json = File.ReadAllText(DbFile);
+                currentVault = JsonSerializer.Deserialize<VaultFile>(json) ?? throw new InvalidOperationException();
+            }
+            catch { throw new InvalidOperationException("Failed to read existing vault header"); }
+
+            salt = Convert.FromBase64String(currentVault.Salt);
+            passNonce = Convert.FromBase64String(currentVault.PasswordNonce!);
+            passTag = Convert.FromBase64String(currentVault.PasswordTag!);
+            passEncryptedKey = Convert.FromBase64String(currentVault.PasswordEncryptedMasterKey!);
+            dpapiEncryptedKey = currentVault.DpapiEncryptedMasterKey != null ? Convert.FromBase64String(currentVault.DpapiEncryptedMasterKey) : null;
+        }
+
         if (dpapiEncryptedKey == null)
         {
             CryptUnprotectMemory(_masterKey, (uint)_masterKey.Length, CRYPTPROTECTMEMORY_SAME_PROCESS);
             dpapiEncryptedKey = ProtectedData.Protect(_masterKey, null, DataProtectionScope.CurrentUser);
             CryptProtectMemory(_masterKey, (uint)_masterKey.Length, CRYPTPROTECTMEMORY_SAME_PROCESS);
+            _cachedDpapiEncryptedKey = dpapiEncryptedKey;
         }
 
         Save(salt, passNonce, passTag, passEncryptedKey, dpapiEncryptedKey);
@@ -307,6 +348,11 @@ public class VaultManager
             _masterKey = null;
         }
         _entries.Clear();
+        _cachedSalt = null;
+        _cachedPassNonce = null;
+        _cachedPassTag = null;
+        _cachedPassEncryptedKey = null;
+        _cachedDpapiEncryptedKey = null;
     }
 
     private byte[] DeriveKeyFromPassword(System.Security.SecureString password, byte[] salt)

@@ -36,7 +36,7 @@ public class SyncManager
         string localIp = GetLocalIPAddress();
         string url = $"http://{localIp}:5555/";
 
-        _listener = new TcpListener(IPAddress.Any, 5555);
+        _listener = new TcpListener(IPAddress.Parse(localIp), 5555);
         _listener.Start();
 
         _cts = new CancellationTokenSource();
@@ -159,36 +159,44 @@ public class SyncManager
     private string GetEncryptedVault()
     {
         if (!_vault.IsUnlocked) return "{}";
-        
-        var plainEntries = new System.Collections.Generic.Dictionary<string, object>();
-        foreach (var kvp in _vault.Entries)
+
+        using var ms = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(ms))
         {
-            plainEntries[kvp.Key] = new {
-                username = kvp.Value.Username,
-                password = kvp.Value.GetPassword(),
-                website = kvp.Value.Website
-            };
+            writer.WriteStartObject();
+            foreach (var kvp in _vault.Entries)
+            {
+                writer.WriteStartObject(kvp.Key);
+                writer.WriteString("username", kvp.Value.Username);
+
+                string pwd = kvp.Value.GetPassword();
+                writer.WriteString("password", pwd);
+                Entry.ZeroString(pwd);
+
+                writer.WriteString("website", kvp.Value.Website);
+                writer.WriteEndObject();
+            }
+            writer.WriteEndObject();
         }
-        
-        string json = JsonSerializer.Serialize(plainEntries);
-        byte[] plaintext = Encoding.UTF8.GetBytes(json);
-        
+
+        byte[] plaintext = ms.ToArray();
+
         byte[] nonce = RandomNumberGenerator.GetBytes(12);
         byte[] ciphertext = new byte[plaintext.Length];
         byte[] tag = new byte[16];
-        
+
         using (var aes = new AesGcm(_ephemeralKey!, tag.Length))
         {
             aes.Encrypt(nonce, plaintext, ciphertext, tag);
         }
-        
+
         var payload = new SyncPayload
         {
             Nonce = Convert.ToBase64String(nonce),
             Ciphertext = Convert.ToBase64String(ciphertext),
             Tag = Convert.ToBase64String(tag)
         };
-        
+
         CryptographicOperations.ZeroMemory(plaintext);
         return JsonSerializer.Serialize(payload);
     }

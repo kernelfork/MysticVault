@@ -1,14 +1,19 @@
+using System;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 namespace MysticVault;
+
 [JsonConverter(typeof(EntryJsonConverter))]
 public class Entry
 {
     public string Username { get; set; }
     public string Website { get; set; }
     public byte[] ProtectedPassword { get; set; } = Array.Empty<byte>();
+    public byte[]? PasswordHash { get; set; }
+
     public Entry(string username, string password, string website = "")
     {
         Username = username;
@@ -25,6 +30,7 @@ public class Entry
     {
         byte[] bytes = Encoding.UTF8.GetBytes(password);
         ProtectedPassword = ProtectedData.Protect(bytes, null, DataProtectionScope.CurrentUser);
+        PasswordHash = SHA256.HashData(bytes);
         CryptographicOperations.ZeroMemory(bytes);
     }
     public string GetPassword()
@@ -33,6 +39,36 @@ public class Entry
         string pass = Encoding.UTF8.GetString(bytes);
         CryptographicOperations.ZeroMemory(bytes);
         return pass;
+    }
+
+    public void UsePassword(Action<string> action)
+    {
+        string password = GetPassword();
+        try
+        {
+            action(password);
+        }
+        finally
+        {
+            ZeroString(password);
+        }
+    }
+
+    public async Task UsePasswordAsync(Func<string, Task> action)
+    {
+        string password = GetPassword();
+        try { await action(password); }
+        finally { ZeroString(password); }
+    }
+
+    internal static unsafe void ZeroString(string? s)
+    {
+        if (string.IsNullOrEmpty(s)) return;
+        fixed (char* p = s)
+        {
+            for (int i = 0; i < s.Length; i++)
+                p[i] = '\0';
+        }
     }
 }
 public class EntryJsonConverter : JsonConverter<Entry>
@@ -55,17 +91,18 @@ public class EntryJsonConverter : JsonConverter<Entry>
     {
         writer.WriteStartObject();
         writer.WriteString("Username", value.Username);
-        writer.WriteString("Password", value.GetPassword()); 
+        writer.WriteString("Password", value.GetPassword());
         writer.WriteString("Website", value.Website);
+        writer.WriteString("PasswordHash", Convert.ToBase64String(value.PasswordHash ?? SHA256.HashData(Encoding.UTF8.GetBytes(value.GetPassword()))));
         writer.WriteEndObject();
     }
 }
 public record VaultFile(
-    string Salt, 
-    string Nonce, 
-    string Tag, 
-    string Ciphertext, 
-    string? PasswordEncryptedMasterKey, 
+    string Salt,
+    string Nonce,
+    string Tag,
+    string Ciphertext,
+    string? PasswordEncryptedMasterKey,
     string? PasswordNonce,
     string? PasswordTag,
     string? DpapiEncryptedMasterKey,
