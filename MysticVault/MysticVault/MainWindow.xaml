@@ -1,0 +1,714 @@
+<Window x:Class="MysticVault.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MysticVault" Height="680" Width="900"
+        WindowStartupLocation="CenterScreen"
+        FontFamily="Segoe UI"
+        Foreground="#EDEDF2"
+        FontSize="13"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Icon="/Assets/icon.ico"
+        ResizeMode="CanMinimize">
+    <Window.Resources>
+        <SolidColorBrush x:Key="AccentBrush"      Color="#7C4DFF"/>
+        <SolidColorBrush x:Key="AccentHoverBrush"  Color="#9C6AFF"/>
+        <SolidColorBrush x:Key="AccentMutedBrush"  Color="#2E1A5E"/>
+        <SolidColorBrush x:Key="AccentLightBrush"  Color="#B388FF"/>
+        <SolidColorBrush x:Key="TextBrush"         Color="#EDEDF2"/>
+        <SolidColorBrush x:Key="SubtleTextBrush"   Color="#8D8FA3"/>
+        <SolidColorBrush x:Key="SurfaceBrush"      Color="#D91E1440"/>
+        <SolidColorBrush x:Key="CardBrush"          Color="#E6221850"/>
+        <SolidColorBrush x:Key="BorderBrush2"       Color="#3D3660"/>
+        <SolidColorBrush x:Key="InputBgBrush"       Color="#150D2A"/>
+        <SolidColorBrush x:Key="SuccessBrush"      Color="#3DDC97"/>
+        <SolidColorBrush x:Key="ErrorBrush"        Color="#FF5C7A"/>
+        <SolidColorBrush x:Key="ErrorHoverBrush"   Color="#3A2230"/>
+        <SolidColorBrush x:Key="WarningBrush"      Color="#FFC107"/>
+        <SolidColorBrush x:Key="RowHoverBrush"     Color="#261A45"/>
+        <DropShadowEffect x:Key="CardShadow" BlurRadius="28" ShadowDepth="0" Opacity="0.30" Color="#000000"/>
+        <Style x:Key="HeadingText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="20"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+        <Style x:Key="LabelText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource SubtleTextBrush}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <Style x:Key="HintTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource SubtleTextBrush}"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="{StaticResource InputBgBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}"/>
+            <Setter Property="CaretBrush" Value="{StaticResource TextBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="PasswordBox">
+            <Setter Property="Background" Value="{StaticResource InputBgBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}"/>
+            <Setter Property="CaretBrush" Value="{StaticResource TextBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsFocused" Value="True">
+                                <Setter Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="ScrollBar">
+            <Setter Property="Width" Value="6"/>
+            <Setter Property="MinWidth" Value="6"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True" Focusable="False">
+                            <Track.Thumb>
+                                <Thumb>
+                                    <Thumb.Template>
+                                        <ControlTemplate TargetType="Thumb">
+                                            <Border Background="#40FFFFFF" CornerRadius="3" Margin="1"/>
+                                        </ControlTemplate>
+                                    </Thumb.Template>
+                                </Thumb>
+                            </Track.Thumb>
+                        </Track>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Orientation" Value="Horizontal">
+                                <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Height" Value="6"/>
+                    <Setter Property="MinHeight" Value="6"/>
+                    <Setter Property="Width" Value="Auto"/>
+                    <Setter Property="MinWidth" Value="0"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+        </Style>
+        <Style TargetType="ListBoxItem">
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="Margin" Value="0,1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" CornerRadius="8" Background="Transparent" Padding="8,6">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource RowHoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentMutedBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Background" Value="{StaticResource AccentBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="16,9"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentHoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="OutlineButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="16,9"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource RowHoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="DangerOutlineButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource ErrorBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource ErrorBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1" CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource ErrorHoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="IconButton" TargetType="Button" BasedOn="{StaticResource OutlineButton}">
+            <Setter Property="Padding" Value="8,6"/>
+        </Style>
+        <Style x:Key="WindowButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource SubtleTextBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#30FFFFFF"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CloseWindowButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{StaticResource SubtleTextBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent" CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E81123"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="TogglePill" TargetType="ToggleButton">
+            <Setter Property="Background" Value="#1A0E30"/>
+            <Setter Property="Foreground" Value="{StaticResource SubtleTextBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush2}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="16,7"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="16" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#261A45"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentBrush}"/>
+                                <Setter Property="Foreground" Value="White"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}"/>
+    </Window.Resources>
+    <Border Margin="10">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="24" ShadowDepth="0" Opacity="0.6" Color="#000000"/>
+        </Border.Effect>
+        <Border CornerRadius="14" ClipToBounds="True">
+            <Border.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#1A0933" Offset="0.0"/>
+                    <GradientStop Color="#0F0D1F" Offset="0.5"/>
+                    <GradientStop Color="#0D0B1A" Offset="1.0"/>
+                </LinearGradientBrush>
+            </Border.Background>
+            <Grid>
+                <Ellipse Width="500" Height="500" HorizontalAlignment="Right" VerticalAlignment="Top"
+                         Margin="0,-150,-100,0" Opacity="0.12" IsHitTestVisible="False">
+                    <Ellipse.Fill>
+                        <RadialGradientBrush>
+                            <GradientStop Color="#9C27B0" Offset="0"/>
+                            <GradientStop Color="Transparent" Offset="1"/>
+                        </RadialGradientBrush>
+                    </Ellipse.Fill>
+                </Ellipse>
+                <Ellipse Width="400" Height="400" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                         Margin="-100,0,0,-100" Opacity="0.08" IsHitTestVisible="False">
+                    <Ellipse.Fill>
+                        <RadialGradientBrush>
+                            <GradientStop Color="#3F51B5" Offset="0"/>
+                            <GradientStop Color="Transparent" Offset="1"/>
+                        </RadialGradientBrush>
+                    </Ellipse.Fill>
+                </Ellipse>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="40"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="Transparent" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+                        <Grid Margin="16,0">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Image Source="/Assets/icon.ico" Width="16" Height="16" Margin="0,0,8,0"
+                                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                                <TextBlock Text="MysticVault" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center"/>
+                                <TextBlock Text="•" Foreground="{StaticResource SubtleTextBrush}" Margin="10,0" VerticalAlignment="Center"/>
+                                <TextBlock Text="Encrypted locally" Foreground="{StaticResource SubtleTextBrush}" FontSize="11" VerticalAlignment="Center"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button Content="—" Style="{StaticResource WindowButton}" Click="MinimizeButton_Click"/>
+                                <Button Content="✕" Style="{StaticResource CloseWindowButton}" Margin="4,0,0,0" Click="CloseButton_Click"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Grid Grid.Row="1" Margin="16,0,16,16">
+                        <Border x:Name="LockPanel" Background="{StaticResource CardBrush}"
+                                BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
+                                CornerRadius="16" Padding="40" Width="380"
+                                HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Effect="{StaticResource CardShadow}">
+                            <StackPanel>
+                                <Image Source="/Assets/lock.png" Width="48" Height="48" Margin="0,0,0,20"
+                                       HorizontalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                <TextBlock x:Name="LockTitleText" Text="Unlock MysticVault"
+                                           Style="{StaticResource HeadingText}" Margin="0,0,0,24" HorizontalAlignment="Center"/>
+                                <TextBlock Text="MASTER PASSWORD" Style="{StaticResource LabelText}"/>
+                                <PasswordBox x:Name="MasterPasswordBox" Margin="0,0,0,14"/>
+                                <TextBlock x:Name="ConfirmLabel" Text="CONFIRM MASTER PASSWORD"
+                                           Style="{StaticResource LabelText}" Visibility="Collapsed"/>
+                                <PasswordBox x:Name="ConfirmPasswordBox" Margin="0,0,0,14" Visibility="Collapsed"/>
+                                <Button x:Name="UnlockButton" Content="Unlock" Click="UnlockButton_Click"
+                                        HorizontalAlignment="Stretch" Margin="0,6,0,0"/>
+                                <TextBlock x:Name="StatusText" Foreground="{StaticResource ErrorBrush}"
+                                           Margin="0,14,0,0" TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <Grid x:Name="VaultPanel" Visibility="Collapsed">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="260"/>
+                                <ColumnDefinition Width="16"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Background="{StaticResource SurfaceBrush}"
+                                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
+                                    CornerRadius="12" Padding="12">
+                                <DockPanel>
+                                    <Border DockPanel.Dock="Top" CornerRadius="10" Background="#150D2A"
+                                            BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
+                                            Margin="0,0,0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Image Source="/Assets/search.png" Width="14" Height="14" Margin="10,0,0,0" Opacity="0.5" RenderOptions.BitmapScalingMode="HighQuality" VerticalAlignment="Center"/>
+                                            <TextBox x:Name="SearchBox" Grid.Column="1" Background="Transparent" BorderThickness="0"
+                                                     Foreground="{StaticResource TextBrush}" CaretBrush="{StaticResource TextBrush}"
+                                                     FontSize="13" TextChanged="SearchBox_TextChanged">
+                                                <TextBox.Template>
+                                                    <ControlTemplate TargetType="TextBox">
+                                                        <ScrollViewer x:Name="PART_ContentHost" Margin="6,8,10,8" VerticalAlignment="Center"/>
+                                                    </ControlTemplate>
+                                                </TextBox.Template>
+                                            </TextBox>
+                                            <TextBlock x:Name="SearchPlaceholder" Grid.Column="1" Text="Search..."
+                                                       Foreground="#5A5670" FontSize="13" IsHitTestVisible="False"
+                                                       VerticalAlignment="Center" Margin="6,0,0,0"/>
+                                        </Grid>
+                                    </Border>
+                                    <Button DockPanel.Dock="Top" Margin="0,0,0,8" Click="NewEntryButton_Click" Padding="10,8">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image Source="/Assets/add.png" Width="14" Height="14" Margin="0,0,6,0"
+                                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                                            <TextBlock Text="New Entry" Foreground="White" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button DockPanel.Dock="Bottom" Style="{StaticResource OutlineButton}"
+                                            Margin="0,8,0,0" Click="LockButton_Click" Padding="10,8">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Image Source="/Assets/lock.png" Width="14" Height="14" Margin="0,0,6,0"
+                                                   RenderOptions.BitmapScalingMode="HighQuality"/>
+                                            <TextBlock Text="Lock" FontSize="12" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="4"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Button Grid.Column="0" Style="{StaticResource OutlineButton}" Padding="8,8" Click="ExportButton_Click">
+                                                <TextBlock Text="Export" FontSize="12" VerticalAlignment="Center"/>
+                                            </Button>
+                                            <Button Grid.Column="2" Style="{StaticResource OutlineButton}" Padding="8,8" Click="ImportButton_Click">
+                                                <TextBlock Text="Import" FontSize="12" VerticalAlignment="Center"/>
+                                            </Button>
+                                        </Grid>
+                                        <Button Style="{StaticResource OutlineButton}" Padding="8,8" Margin="0,8,0,0" Click="BrowserExtractButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Image Source="/Assets/browser.png" Width="14" Height="14" Margin="0,0,6,0" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                                <TextBlock Text="Browser Extract" FontSize="12" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                    <Grid>
+                                        <ListBox x:Name="SitesListBox" SelectionChanged="SitesListBox_SelectionChanged">
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,2">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        <Border Width="32" Height="32" CornerRadius="16" Background="{Binding AvatarBrush}">
+                                                            <TextBlock Text="{Binding AvatarLetter}" Foreground="White"
+                                                                       FontWeight="Bold" FontSize="13"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                        <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding SiteName}" FontWeight="SemiBold" FontSize="13"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Text="{Binding Username}" FontSize="11"
+                                                                       Foreground="{StaticResource SubtleTextBrush}"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                        <TextBlock x:Name="EmptyVaultText" Style="{StaticResource HintTextStyle}"
+                                                   Text="Your vault is empty.&#x0a;Click 'New Entry' to get started."
+                                                   Margin="10,24" Visibility="Collapsed"/>
+                                        <TextBlock x:Name="NoSearchResultsText" Style="{StaticResource HintTextStyle}"
+                                                   Margin="10,24" Visibility="Collapsed"/>
+                                    </Grid>
+                                </DockPanel>
+                            </Border>
+                            <Border Grid.Column="2" Background="{StaticResource CardBrush}"
+                                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
+                                    CornerRadius="12" Padding="28">
+                                <Grid>
+                                    <TextBlock x:Name="NoSelectionHintText" Style="{StaticResource HintTextStyle}"
+                                               Text="Select a saved entry on the left, or click 'New Entry' to add one."
+                                               VerticalAlignment="Center" Visibility="Collapsed"/>
+                                    <ScrollViewer x:Name="DetailPanel" VerticalScrollBarVisibility="Auto" Margin="-10,0,-10,0" Padding="10,0,10,0" Visibility="Collapsed">
+                                        <StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,0,24">
+                                            <Border x:Name="DetailAvatar" Width="48" Height="48" CornerRadius="24"
+                                                    Background="{StaticResource AccentBrush}">
+                                                <TextBlock x:Name="DetailAvatarLetter" Text="?"
+                                                           Foreground="White" FontWeight="Bold" FontSize="20"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            </Border>
+                                            <TextBlock x:Name="DetailSiteTitle" Text="New Entry"
+                                                       Style="{StaticResource HeadingText}"
+                                                       Margin="16,0,0,0" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <TextBlock Text="SITE / APP NAME" Style="{StaticResource LabelText}"/>
+                                        <TextBox x:Name="SiteTextBox" Margin="0,0,0,18"/>
+                                        <TextBlock Text="WEBSITE / URL" Style="{StaticResource LabelText}"/>
+                                        <Grid Margin="0,0,0,18">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="WebsiteTextBox" Grid.Column="0"/>
+                                            <Button Grid.Column="1" Style="{StaticResource IconButton}" Margin="8,0,0,0" Click="OpenBrowserButton_Click" ToolTip="Open in Browser">
+                                                <Image Source="/Assets/browser.png" Width="16" Height="16" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                            </Button>
+                                        </Grid>
+                                        <TextBlock Text="USERNAME / EMAIL" Style="{StaticResource LabelText}"/>
+                                        <Grid Margin="0,0,0,18">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBox x:Name="UsernameTextBox" Grid.Column="0"/>
+                                            <Button Grid.Column="1" Style="{StaticResource IconButton}" Margin="8,0,0,0" Click="CopyUsernameButton_Click" ToolTip="Copy to clipboard">
+                                                <Image Source="/Assets/copy.png" Width="16" Height="16" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                            </Button>
+                                        </Grid>
+                                        <TextBlock Text="PASSWORD" Style="{StaticResource LabelText}"/>
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid Grid.Column="0">
+                                                <PasswordBox x:Name="PasswordMaskedBox"
+                                                             FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="14"
+                                                             PasswordChanged="PasswordMaskedBox_PasswordChanged"/>
+                                                <TextBox x:Name="PasswordRevealedBox"
+                                                         FontFamily="Cascadia Mono, Consolas, Courier New" FontSize="14"
+                                                         Visibility="Collapsed" TextChanged="PasswordRevealedBox_TextChanged"/>
+                                            </Grid>
+                                            <Button Grid.Column="1" Style="{StaticResource IconButton}" Margin="8,0,0,0"
+                                                    Click="TogglePasswordVisibilityButton_Click" ToolTip="Show / Hide">
+                                                <Image x:Name="TogglePasswordIcon" Source="/Assets/show.png" Width="16" Height="16"
+                                                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                                            </Button>
+                                            <Button Grid.Column="2" Style="{StaticResource IconButton}" Margin="6,0,0,0"
+                                                    Click="CopyPasswordButton_Click" ToolTip="Copy to clipboard">
+                                                <Image Source="/Assets/copy.png" Width="16" Height="16"
+                                                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                                            </Button>
+                                            <Button Grid.Column="3" Style="{StaticResource IconButton}" Margin="6,0,0,0"
+                                                    Click="GeneratePasswordButton_Click" ToolTip="Password Generator">
+                                                <Image Source="/Assets/generate.png" Width="16" Height="16"
+                                                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                                            </Button>
+                                        </Grid>
+                                        <TextBlock x:Name="GeneratorHintText" Text=""
+                                                   Foreground="{StaticResource SubtleTextBrush}" FontSize="11" Margin="0,2,0,22"/>
+                                        <Border BorderBrush="{StaticResource BorderBrush2}" BorderThickness="0,1,0,0" Margin="0,0,0,18"/>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                            <Button Style="{StaticResource DangerOutlineButton}" Margin="0,0,10,0" Click="DeleteEntryButton_Click">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Image Source="/Assets/delete.png" Width="14" Height="14" Margin="0,0,6,0"
+                                                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                                                    <TextBlock Text="Delete" Foreground="{StaticResource ErrorBrush}" FontSize="12"/>
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Click="SaveEntryButton_Click" Padding="14,8">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Image Source="/Assets/save.png" Width="14" Height="14" Margin="0,0,6,0"
+                                                           RenderOptions.BitmapScalingMode="HighQuality"/>
+                                                    <TextBlock Text="Save" Foreground="White" FontSize="12" FontWeight="SemiBold"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                        <TextBlock x:Name="VaultStatusText" Foreground="{StaticResource SubtleTextBrush}"
+                                                   Margin="0,16,0,0" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </ScrollViewer>
+                                </Grid>
+                            </Border>
+                        </Grid>
+                        <Grid x:Name="GeneratorOverlay" Visibility="Collapsed">
+                            <Border Background="#60000000" CornerRadius="12" MouseDown="GeneratorBackdrop_MouseDown"/>
+                            <Border Width="400" CornerRadius="16" Padding="24"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                    BorderBrush="{StaticResource BorderBrush2}" BorderThickness="1"
+                                    Effect="{StaticResource CardShadow}">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                        <GradientStop Color="#1E1440" Offset="0"/>
+                                        <GradientStop Color="#161030" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <StackPanel>
+                                    <TextBlock Text="Password Generator" Style="{StaticResource HeadingText}"
+                                               FontSize="17" Margin="0,0,0,16"/>
+                                    <Border Background="#120A25" CornerRadius="10" Padding="14,12" Margin="0,0,0,20">
+                                        <TextBlock x:Name="GeneratedPasswordText"
+                                                   FontFamily="Cascadia Mono, Consolas, Courier New"
+                                                   Foreground="{StaticResource AccentLightBrush}"
+                                                   FontSize="15" TextWrapping="Wrap" TextAlignment="Center"/>
+                                    </Border>
+                                    <Grid Margin="0,0,0,18">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Length" Foreground="{StaticResource SubtleTextBrush}"
+                                                   FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0"/>
+                                        <Slider x:Name="LengthSlider" Grid.Column="1"
+                                                Minimum="8" Maximum="64" Value="20"
+                                                IsSnapToTickEnabled="True" TickFrequency="1"
+                                                VerticalAlignment="Center"
+                                                ValueChanged="LengthSlider_ValueChanged">
+                                            <Slider.Template>
+                                                <ControlTemplate TargetType="Slider">
+                                                    <Grid VerticalAlignment="Center" Height="18">
+                                                        <Track x:Name="PART_Track">
+                                                            <Track.DecreaseRepeatButton>
+                                                                <RepeatButton Command="Slider.DecreaseLarge">
+                                                                    <RepeatButton.Template>
+                                                                        <ControlTemplate TargetType="RepeatButton">
+                                                                            <Border Height="4" CornerRadius="2" Background="{StaticResource AccentBrush}"/>
+                                                                        </ControlTemplate>
+                                                                    </RepeatButton.Template>
+                                                                </RepeatButton>
+                                                            </Track.DecreaseRepeatButton>
+                                                            <Track.IncreaseRepeatButton>
+                                                                <RepeatButton Command="Slider.IncreaseLarge">
+                                                                    <RepeatButton.Template>
+                                                                        <ControlTemplate TargetType="RepeatButton">
+                                                                            <Border Height="4" CornerRadius="2" Background="#2A2545"/>
+                                                                        </ControlTemplate>
+                                                                    </RepeatButton.Template>
+                                                                </RepeatButton>
+                                                            </Track.IncreaseRepeatButton>
+                                                            <Track.Thumb>
+                                                                <Thumb Cursor="Hand">
+                                                                    <Thumb.Template>
+                                                                        <ControlTemplate TargetType="Thumb">
+                                                                            <Ellipse Width="18" Height="18" Fill="White">
+                                                                                <Ellipse.Effect>
+                                                                                    <DropShadowEffect BlurRadius="6" ShadowDepth="0" Opacity="0.3"/>
+                                                                                </Ellipse.Effect>
+                                                                            </Ellipse>
+                                                                        </ControlTemplate>
+                                                                    </Thumb.Template>
+                                                                </Thumb>
+                                                            </Track.Thumb>
+                                                        </Track>
+                                                    </Grid>
+                                                </ControlTemplate>
+                                            </Slider.Template>
+                                        </Slider>
+                                        <Border Grid.Column="2" Background="#2A2545" CornerRadius="6"
+                                                Padding="10,4" Margin="12,0,0,0" MinWidth="36">
+                                            <TextBlock x:Name="LengthValueText" Text="20"
+                                                       HorizontalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
+                                        </Border>
+                                    </Grid>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,20">
+                                        <ToggleButton x:Name="UppercaseToggle" Content="ABC" IsChecked="True"
+                                                      Style="{StaticResource TogglePill}" Margin="0,0,6,0"
+                                                      Click="ToggleCharType_Click"/>
+                                        <ToggleButton x:Name="LowercaseToggle" Content="abc" IsChecked="True"
+                                                      Style="{StaticResource TogglePill}" Margin="0,0,6,0"
+                                                      Click="ToggleCharType_Click"/>
+                                        <ToggleButton x:Name="DigitsToggle" Content="123" IsChecked="True"
+                                                      Style="{StaticResource TogglePill}" Margin="0,0,6,0"
+                                                      Click="ToggleCharType_Click"/>
+                                        <ToggleButton x:Name="SymbolsToggle" Content="#+=" IsChecked="True"
+                                                      Style="{StaticResource TogglePill}"
+                                                      Click="ToggleCharType_Click"/>
+                                    </StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Button Grid.Column="0" Style="{StaticResource OutlineButton}"
+                                                Margin="0,0,6,0" Click="RefreshGeneratedPassword_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Image Source="/Assets/generate.png" Width="14" Height="14" Margin="0,0,6,0"
+                                                       RenderOptions.BitmapScalingMode="HighQuality"/>
+                                                <TextBlock Text="Refresh" FontSize="12"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="1" Margin="6,0,0,0" Click="UseGeneratedPassword_Click">
+                                            <TextBlock Text="Use Password" Foreground="White" FontSize="12" FontWeight="SemiBold"/>
+                                        </Button>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Border>
+    </Border>
+</Window>
