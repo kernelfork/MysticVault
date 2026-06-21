@@ -46,7 +46,7 @@ MysticVault is designed to give you absolute control over your digital security.
 ### How it Works
 Under the hood, MysticVault is powered by .NET 8 and WPF. The cryptography engine leverages `System.Security.Cryptography` to perform AES-256-GCM encryption. When you launch the app, I utilize native `user32.dll` hooks to capture global keyboard shortcuts, and `SendInput` to simulate physical keystrokes for auto-typing. The mobile sync spins up a localized `TcpListener` that hosts a bespoke Single-Page Application (SPA), using the URL `#fragment` trick to pass the raw AES decryption key directly into the device's hardware, fully bypassing network interception.
 
-## Military-Grade Paranoia
+## Advanced
 Because standard cryptography isn't enough, I engineered three aggressive defense mechanisms into the core engine to defend against memory-dumping and reverse-engineering:
 1. **In-Memory Master Key Protection**: Unlike standard password managers that leave your decrypted master key sitting in RAM, MysticVault uses native DPAPI `CryptProtectMemory` (`crypt32.dll`) to keep the key actively encrypted in the system memory. It is only decrypted for the exact microsecond an encryption event occurs, and then instantly mathematically scrambled again.
 2. **Extreme Key Derivation**: I don't just use Argon2id—I cranked the OWASP parameters to the extreme. Unlocking the vault requires **10 iterations** across **256 Megabytes** of RAM, designed explicitly to physically exhaust ASICs and future quantum brute-forcing.
