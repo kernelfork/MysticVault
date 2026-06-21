@@ -52,11 +52,11 @@ public class VaultManager
     }
     public IReadOnlyDictionary<string, Entry> Entries => _entries;
 
-    public void CreateVault(string masterPassword, bool enablePasskey)
+    public void InitializeNewVault(System.Security.SecureString masterPassword)
     {
-        byte[] vaultMasterKey = RandomNumberGenerator.GetBytes(KeySizeBytes);
-
         byte[] salt = RandomNumberGenerator.GetBytes(SaltSizeBytes);
+        byte[] vaultMasterKey = RandomNumberGenerator.GetBytes(KeySizeBytes);
+        
         byte[] passwordKey = DeriveKeyFromPassword(masterPassword, salt);
         
         byte[] passNonce = RandomNumberGenerator.GetBytes(NonceSizeBytes);
@@ -79,7 +79,7 @@ public class VaultManager
         Save(salt, passNonce, passTag, passEncryptedKey, dpapiEncryptedKey);
     }
 
-    public UnlockResult UnlockWithPassword(string masterPassword)
+    public UnlockResult UnlockWithPassword(System.Security.SecureString masterPassword)
     {
         VaultFile vaultFile;
         try
@@ -309,10 +309,36 @@ public class VaultManager
         _entries.Clear();
     }
 
-    private byte[] DeriveKeyFromPassword(string password, byte[] salt)
+    private byte[] DeriveKeyFromPassword(System.Security.SecureString password, byte[] salt)
     {
-        byte[] passwordBytes = Encoding.UTF8.GetBytes(password);
-        using var argon2 = new Argon2id(passwordBytes)
+        IntPtr valuePtr = IntPtr.Zero;
+        byte[] passwordBytes = new byte[password.Length * 2]; 
+        int byteCount = 0;
+        try
+        {
+            valuePtr = System.Runtime.InteropServices.Marshal.SecureStringToBSTR(password);
+            unsafe
+            {
+                char* chars = (char*)valuePtr;
+                fixed (byte* pBytes = passwordBytes)
+                {
+                    byteCount = Encoding.UTF8.GetBytes(chars, password.Length, pBytes, passwordBytes.Length);
+                }
+            }
+        }
+        finally
+        {
+            if (valuePtr != IntPtr.Zero)
+            {
+                System.Runtime.InteropServices.Marshal.ZeroFreeBSTR(valuePtr);
+            }
+        }
+
+        byte[] finalPasswordBytes = new byte[byteCount];
+        Array.Copy(passwordBytes, finalPasswordBytes, byteCount);
+        CryptographicOperations.ZeroMemory(passwordBytes);
+
+        using var argon2 = new Argon2id(finalPasswordBytes)
         {
             Salt = salt,
             DegreeOfParallelism = Argon2DegreeOfParallelism,
@@ -320,7 +346,7 @@ public class VaultManager
             MemorySize = Argon2MemorySizeKb
         };
         byte[] key = argon2.GetBytes(KeySizeBytes);
-        CryptographicOperations.ZeroMemory(passwordBytes);
+        CryptographicOperations.ZeroMemory(finalPasswordBytes);
         return key;
     }
 

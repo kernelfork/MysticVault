@@ -14,7 +14,7 @@ namespace MysticVault;
 public partial class MainWindow : Window
 {
     private readonly VaultManager _vault = new();
-    private static readonly TimeSpan ClipboardClearDelay = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan ClipboardClearDelay = TimeSpan.FromSeconds(10);
     private DispatcherTimer? _clipboardClearTimer;
     private DispatcherTimer? _idleTimer;
     private MiniSearchWindow? _miniSearchWindow;
@@ -53,6 +53,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         UpdateLockScreenForVaultState();
         SetupSystemTray();
+        Deactivated += MainWindow_Deactivated;
         Closing += (_, e) => 
         {
             if (!_isActuallyClosing)
@@ -142,6 +143,29 @@ public partial class MainWindow : Window
             Activate();
         }
     }
+    private void MainWindow_Deactivated(object? sender, EventArgs e)
+    {
+        if (_clipboardClearTimer != null && _clipboardClearTimer.IsEnabled)
+        {
+            _clipboardClearTimer.Stop();
+            try
+            {
+                Clipboard.Clear();
+            }
+            catch (System.Runtime.InteropServices.COMException) { }
+            
+            VaultStatusText.Foreground = (Brush)FindResource("SubtleTextBrush");
+            VaultStatusText.Text = "Clipboard cleared for security.";
+        }
+    }
+
+    private void TopBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 2)
+            WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+        else
+            DragMove();
+    }
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount == 2)
@@ -206,15 +230,14 @@ public partial class MainWindow : Window
     private void UnlockButton_Click(object sender, RoutedEventArgs e)
     {
         StatusText.Text = "";
-        string password = MasterPasswordBox.Password;
-        if (string.IsNullOrEmpty(password))
+        if (MasterPasswordBox.SecurePassword == null || MasterPasswordBox.SecurePassword.Length == 0)
         {
             StatusText.Text = "Enter a master password.";
             return;
         }
         if (VaultManager.VaultExists())
         {
-            var result = _vault.UnlockWithPassword(password);
+            var result = _vault.UnlockWithPassword(MasterPasswordBox.SecurePassword);
             if (result != UnlockResult.Success)
             {
                 StatusText.Text = result switch
@@ -231,12 +254,12 @@ public partial class MainWindow : Window
         }
         else
         {
-            if (password != ConfirmPasswordBox.Password)
+            if (MasterPasswordBox.Password != ConfirmPasswordBox.Password)
             {
                 StatusText.Text = "Passwords didn't match.";
                 return;
             }
-            _vault.CreateVault(password, false);
+            _vault.InitializeNewVault(MasterPasswordBox.SecurePassword);
         }
         MasterPasswordBox.Clear();
         ConfirmPasswordBox.Clear();
@@ -603,6 +626,9 @@ public partial class MainWindow : Window
             SetVaultStatus("Could not open URL.", isError: true);
         }
     }
+    
+
+
     private void CopyUsernameButton_Click(object sender, RoutedEventArgs e)
     {
         string username = UsernameTextBox.Text.Trim();
