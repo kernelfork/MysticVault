@@ -25,3 +25,20 @@ To build a standalone executable:
 ```cmd
 dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 ```
+
+## AI OVERVIEW
+*Here is an AI breakdown of the architecture, detailing exactly what this repository offers and how it operates securely under the hood:*
+
+### What it Offers
+MysticVault is designed to give you absolute control over your digital security. In a world where every password manager wants you to pay a monthly subscription to host your most sensitive data on their cloud servers, MysticVault takes the opposite approach. It is a strictly offline, self-hosted, un-hackable fortress that lives purely on your hardware. 
+
+### What it Does
+1. **Stores Passwords Locally**: Keeps your credentials in an offline `.dat` file.
+2. **Auto-Types on Command**: Pressing a global hotkey summons the app so you can search and inject your passwords directly into other apps or browsers without copy-pasting.
+3. **Beams to your Phone**: It features an ingenious zero-knowledge local Wi-Fi sync that lets you securely transfer your vault to your mobile browser without sending the decryption key over the network.
+4. **Resists Malware**: It actively defends against infostealers by combining Argon2id hashing with Windows DPAPI, ensuring your vault can't be opened on another machine even if it's stolen.
+
+### How it Works
+Under the hood, MysticVault is powered by .NET 8 and WPF. The cryptography engine leverages `System.Security.Cryptography` to perform AES-256-GCM encryption. When you launch the app, we utilize native `user32.dll` hooks to capture global keyboard shortcuts, and `SendInput` to simulate physical keystrokes for auto-typing. The mobile sync spins up a localized `TcpListener` that hosts a bespoke Single-Page Application (SPA), using the URL `#fragment` trick to pass the raw AES decryption key directly into the device's hardware, fully bypassing network interception.
+
+It's sleek, it's brutalist, and it's 100% yours.
