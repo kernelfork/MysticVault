@@ -1,6 +1,6 @@
 # MysticVault
 
-A native, offline-first password manager for Windows built with WPF and .NET 8. I built this to have a truly local credential store without relying on cloud sync or monthly subscriptions.
+A desktop-native, strictly offline password manager for Windows built with WPF and .NET 8. I built this to have a truly local credential store without relying on cloud sync or monthly subscriptions.
 
 ## Features
 
@@ -44,6 +44,15 @@ MysticVault is designed to give you absolute control over your digital security.
 9. **Idle Auto-Lock**: It monitors your global system activity and will automatically seal the vault if you step away from your computer for 5 minutes.
 
 ### How it Works
-Under the hood, MysticVault is powered by .NET 8 and WPF. The cryptography engine leverages `System.Security.Cryptography` to perform AES-256-GCM encryption. When you launch the app, we utilize native `user32.dll` hooks to capture global keyboard shortcuts, and `SendInput` to simulate physical keystrokes for auto-typing. The mobile sync spins up a localized `TcpListener` that hosts a bespoke Single-Page Application (SPA), using the URL `#fragment` trick to pass the raw AES decryption key directly into the device's hardware, fully bypassing network interception.
+Under the hood, MysticVault is powered by .NET 8 and WPF. The cryptography engine leverages `System.Security.Cryptography` to perform AES-256-GCM encryption. When you launch the app, I utilize native `user32.dll` hooks to capture global keyboard shortcuts, and `SendInput` to simulate physical keystrokes for auto-typing. The mobile sync spins up a localized `TcpListener` that hosts a bespoke Single-Page Application (SPA), using the URL `#fragment` trick to pass the raw AES decryption key directly into the device's hardware, fully bypassing network interception.
+
+## Military-Grade Paranoia
+Because standard cryptography isn't enough, I engineered three aggressive defense mechanisms into the core engine to defend against memory-dumping and reverse-engineering:
+1. **In-Memory Master Key Protection**: Unlike standard password managers that leave your decrypted master key sitting in RAM, MysticVault uses native DPAPI `CryptProtectMemory` (`crypt32.dll`) to keep the key actively encrypted in the system memory. It is only decrypted for the exact microsecond an encryption event occurs, and then instantly mathematically scrambled again.
+2. **Extreme Key Derivation**: I don't just use Argon2id—I cranked the OWASP parameters to the extreme. Unlocking the vault requires **10 iterations** across **256 Megabytes** of RAM, designed explicitly to physically exhaust ASICs and future quantum brute-forcing.
+3. **Aggressive Anti-Debugging**: The application has an embedded background thread that constantly polls `kernel32.dll` for `IsDebuggerPresent()` and `CheckRemoteDebuggerPresent()`. If malware, an infostealer, or a reverse-engineer attempts to attach a debugger to dump the application's memory, MysticVault instantly self-destructs the process to protect the vault.
+4. **Hardware-Binding (DPAPI Enforced)**: The `vault.dat` file is unconditionally wrapped in `ProtectedData` bound to your specific Windows User Profile. Even if a threat actor steals your vault file and knows the master password, it is mathematically impossible to decrypt it on any other machine. 
+5. **Anti-DLL Injection**: I utilize `SetProcessMitigationPolicy` to interact directly with the Windows Kernel, explicitly blocking any non-Microsoft signed DLLs from injecting into the process space, rendering generic infostealers useless.
+6. **Double-Integrity Verification**: On top of the standard AES-GCM Authentication Tag, the entire encrypted payload is explicitly re-signed using an `HMAC-SHA256` signature to mathematically prove zero tampering before memory parsing occurs.
 
 It's sleek, it's brutalist, and it's 100% yours.

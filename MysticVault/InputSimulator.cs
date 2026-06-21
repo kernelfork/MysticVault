@@ -54,7 +54,7 @@ public static class InputSimulator
         foreach (char c in text)
         {
             SendChar(c);
-            await Task.Delay(2);
+            await Task.Delay(Random.Shared.Next(2, 16));
         }
     }
 
@@ -88,6 +88,6 @@ public static class InputSimulator
         inputs[1].u.ki.dwFlags = KEYEVENTF_KEYUP;
 
         SendInput(2, inputs, Marshal.SizeOf(typeof(INPUT)));
-        await Task.Delay(10);
+        await Task.Delay(Random.Shared.Next(10, 25));
     }
 }

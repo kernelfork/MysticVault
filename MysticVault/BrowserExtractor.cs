@@ -76,7 +76,20 @@ public class BrowserExtractor
         {
             if (File.Exists(tempDbPath))
             {
-                try { File.Delete(tempDbPath); } catch { }
+                try 
+                { 
+                    var fi = new FileInfo(tempDbPath);
+                    if (fi.Exists)
+                    {
+                        byte[] buffer = new byte[fi.Length];
+                        using (var fs = new FileStream(tempDbPath, FileMode.Open, FileAccess.Write, FileShare.None))
+                        {
+                            fs.Write(buffer, 0, buffer.Length);
+                        }
+                    }
+                    File.Delete(tempDbPath); 
+                } 
+                catch { }
             }
         }
         return results;

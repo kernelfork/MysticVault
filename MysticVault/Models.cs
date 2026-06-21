@@ -68,5 +68,6 @@ public record VaultFile(
     string? PasswordEncryptedMasterKey, 
     string? PasswordNonce,
     string? PasswordTag,
-    string? DpapiEncryptedMasterKey
+    string? DpapiEncryptedMasterKey,
+    string? HmacSignature
 );

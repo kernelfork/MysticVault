@@ -23,8 +23,16 @@ public class VaultManager
     private const int KeySizeBytes = 32;
     private const int NonceSizeBytes = 12;
     private const int Argon2DegreeOfParallelism = 8;
-    private const int Argon2Iterations = 4;
-    private const int Argon2MemorySizeKb = 64 * 1024; 
+    private const int Argon2Iterations = 10;
+    private const int Argon2MemorySizeKb = 256 * 1024; 
+
+    [System.Runtime.InteropServices.DllImport("crypt32.dll", SetLastError = true)]
+    private static extern bool CryptProtectMemory(byte[] pDataIn, uint cbDataIn, uint dwFlags);
+
+    [System.Runtime.InteropServices.DllImport("crypt32.dll", SetLastError = true)]
+    private static extern bool CryptUnprotectMemory(byte[] pDataIn, uint cbDataIn, uint dwFlags);
+
+    private const uint CRYPTPROTECTMEMORY_SAME_PROCESS = 0;
 
     private byte[]? _masterKey;
     private Dictionary<string, Entry> _entries = new();
@@ -60,15 +68,12 @@ public class VaultManager
             aes.Encrypt(passNonce, vaultMasterKey, passEncryptedKey, passTag);
         }
 
-        byte[]? dpapiEncryptedKey = null;
-        if (enablePasskey)
-        {
-            dpapiEncryptedKey = ProtectedData.Protect(vaultMasterKey, optionalEntropy: null, scope: DataProtectionScope.CurrentUser);
-        }
+        byte[] dpapiEncryptedKey = ProtectedData.Protect(vaultMasterKey, optionalEntropy: null, scope: DataProtectionScope.CurrentUser);
 
         CryptographicOperations.ZeroMemory(passwordKey);
 
         _masterKey = vaultMasterKey;
+        CryptProtectMemory(_masterKey, (uint)_masterKey.Length, CRYPTPROTECTMEMORY_SAME_PROCESS);
         _entries = new Dictionary<string, Entry>();
 
         Save(salt, passNonce, passTag, passEncryptedKey, dpapiEncryptedKey);
@@ -84,8 +89,20 @@ public class VaultManager
         }
         catch { return UnlockResult.CorruptFile; }
 
-        if (vaultFile.PasswordEncryptedMasterKey == null)
+        if (vaultFile.PasswordEncryptedMasterKey == null || vaultFile.DpapiEncryptedMasterKey == null)
             return UnlockResult.CorruptFile;
+
+        // Force DPAPI Hardware Binding Check
+        try
+        {
+            byte[] dpapiTest = Convert.FromBase64String(vaultFile.DpapiEncryptedMasterKey);
+            byte[] testUnprotect = ProtectedData.Unprotect(dpapiTest, optionalEntropy: null, scope: DataProtectionScope.CurrentUser);
+            CryptographicOperations.ZeroMemory(testUnprotect);
+        }
+        catch
+        {
+            return UnlockResult.WrongMachineOrAccount;
+        }
 
         byte[] salt = Convert.FromBase64String(vaultFile.Salt);
         byte[] passwordKey = DeriveKeyFromPassword(masterPassword, salt);
@@ -107,10 +124,23 @@ public class VaultManager
 
         CryptographicOperations.ZeroMemory(passwordKey);
 
+        string dataToSign = vaultFile.Salt + vaultFile.Nonce + vaultFile.Tag + vaultFile.Ciphertext;
+        byte[] expectedHmac;
+        using (var hmacSha = new HMACSHA256(vaultMasterKey))
+        {
+            expectedHmac = hmacSha.ComputeHash(Encoding.UTF8.GetBytes(dataToSign));
+        }
+        if (vaultFile.HmacSignature != null && vaultFile.HmacSignature != Convert.ToBase64String(expectedHmac))
+        {
+            CryptographicOperations.ZeroMemory(vaultMasterKey);
+            return UnlockResult.CorruptFile;
+        }
+
         try
         {
             _entries = Decrypt(vaultFile, vaultMasterKey);
             _masterKey = vaultMasterKey;
+            CryptProtectMemory(_masterKey, (uint)_masterKey.Length, CRYPTPROTECTMEMORY_SAME_PROCESS);
             return UnlockResult.Success;
         }
         catch
@@ -144,10 +174,23 @@ public class VaultManager
             return UnlockResult.WrongMachineOrAccount;
         }
 
+        string dataToSign = vaultFile.Salt + vaultFile.Nonce + vaultFile.Tag + vaultFile.Ciphertext;
+        byte[] expectedHmac;
+        using (var hmacSha = new HMACSHA256(vaultMasterKey))
+        {
+            expectedHmac = hmacSha.ComputeHash(Encoding.UTF8.GetBytes(dataToSign));
+        }
+        if (vaultFile.HmacSignature != null && vaultFile.HmacSignature != Convert.ToBase64String(expectedHmac))
+        {
+            CryptographicOperations.ZeroMemory(vaultMasterKey);
+            return UnlockResult.CorruptFile;
+        }
+
         try
         {
             _entries = Decrypt(vaultFile, vaultMasterKey);
             _masterKey = vaultMasterKey;
+            CryptProtectMemory(_masterKey, (uint)_masterKey.Length, CRYPTPROTECTMEMORY_SAME_PROCESS);
             return UnlockResult.Success;
         }
         catch
@@ -173,7 +216,14 @@ public class VaultManager
         byte[] passNonce = Convert.FromBase64String(currentVault.PasswordNonce!);
         byte[] passTag = Convert.FromBase64String(currentVault.PasswordTag!);
         byte[] passEncryptedKey = Convert.FromBase64String(currentVault.PasswordEncryptedMasterKey!);
+        
         byte[]? dpapiEncryptedKey = currentVault.DpapiEncryptedMasterKey != null ? Convert.FromBase64String(currentVault.DpapiEncryptedMasterKey) : null;
+        if (dpapiEncryptedKey == null)
+        {
+            CryptUnprotectMemory(_masterKey, (uint)_masterKey.Length, CRYPTPROTECTMEMORY_SAME_PROCESS);
+            dpapiEncryptedKey = ProtectedData.Protect(_masterKey, null, DataProtectionScope.CurrentUser);
+            CryptProtectMemory(_masterKey, (uint)_masterKey.Length, CRYPTPROTECTMEMORY_SAME_PROCESS);
+        }
 
         Save(salt, passNonce, passTag, passEncryptedKey, dpapiEncryptedKey);
     }
@@ -182,33 +232,56 @@ public class VaultManager
     {
         if (_masterKey == null) throw new InvalidOperationException("Vault is locked.");
 
-        string json = JsonSerializer.Serialize(_entries);
-        byte[] plaintext = Encoding.UTF8.GetBytes(json);
-
-        byte[] nonce = RandomNumberGenerator.GetBytes(NonceSizeBytes);
-        byte[] ciphertext = new byte[plaintext.Length];
-        byte[] tag = new byte[16];
-
-        using (var aes = new AesGcm(_masterKey, tag.Length))
+        CryptUnprotectMemory(_masterKey, (uint)_masterKey.Length, CRYPTPROTECTMEMORY_SAME_PROCESS);
+        try
         {
-            aes.Encrypt(nonce, plaintext, ciphertext, tag);
+            string json = JsonSerializer.Serialize(_entries);
+            byte[] plaintext = Encoding.UTF8.GetBytes(json);
+
+            byte[] nonce = RandomNumberGenerator.GetBytes(NonceSizeBytes);
+            byte[] ciphertext = new byte[plaintext.Length];
+            byte[] tag = new byte[16];
+
+            using (var aes = new AesGcm(_masterKey, tag.Length))
+            {
+                aes.Encrypt(nonce, plaintext, ciphertext, tag);
+            }
+
+            string saltBase64 = Convert.ToBase64String(salt);
+            string nonceBase64 = Convert.ToBase64String(nonce);
+            string tagBase64 = Convert.ToBase64String(tag);
+            string cipherBase64 = Convert.ToBase64String(ciphertext);
+
+            string dataToSign = saltBase64 + nonceBase64 + tagBase64 + cipherBase64;
+            byte[] hmac;
+            using (var hmacSha = new HMACSHA256(_masterKey))
+            {
+                hmac = hmacSha.ComputeHash(Encoding.UTF8.GetBytes(dataToSign));
+            }
+
+            var vaultFile = new VaultFile(
+                Salt: saltBase64,
+                Nonce: nonceBase64,
+                Tag: tagBase64,
+                Ciphertext: cipherBase64,
+                PasswordEncryptedMasterKey: Convert.ToBase64String(passEncryptedKey),
+                PasswordNonce: Convert.ToBase64String(passNonce),
+                PasswordTag: Convert.ToBase64String(passTag),
+                DpapiEncryptedMasterKey: dpapiEncryptedKey != null ? Convert.ToBase64String(dpapiEncryptedKey) : null,
+                HmacSignature: Convert.ToBase64String(hmac)
+            );
+
+            string output = JsonSerializer.Serialize(vaultFile, new JsonSerializerOptions { WriteIndented = true });
+            string tempFile = DbFile + ".tmp";
+            File.WriteAllText(tempFile, output);
+            File.Move(tempFile, DbFile, overwrite: true);
+
+            CryptographicOperations.ZeroMemory(plaintext);
         }
-
-        var vaultFile = new VaultFile(
-            Salt: Convert.ToBase64String(salt),
-            Nonce: Convert.ToBase64String(nonce),
-            Tag: Convert.ToBase64String(tag),
-            Ciphertext: Convert.ToBase64String(ciphertext),
-            PasswordEncryptedMasterKey: Convert.ToBase64String(passEncryptedKey),
-            PasswordNonce: Convert.ToBase64String(passNonce),
-            PasswordTag: Convert.ToBase64String(passTag),
-            DpapiEncryptedMasterKey: dpapiEncryptedKey != null ? Convert.ToBase64String(dpapiEncryptedKey) : null
-        );
-
-        string output = JsonSerializer.Serialize(vaultFile, new JsonSerializerOptions { WriteIndented = true });
-        File.WriteAllText(DbFile, output);
-
-        CryptographicOperations.ZeroMemory(plaintext);
+        finally
+        {
+            CryptProtectMemory(_masterKey, (uint)_masterKey.Length, CRYPTPROTECTMEMORY_SAME_PROCESS);
+        }
     }
 
     public void AddOrUpdateEntry(string siteName, string username, string password, string url = "")

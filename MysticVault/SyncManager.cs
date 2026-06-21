@@ -140,7 +140,6 @@ public class SyncManager
             string headers = $"HTTP/1.1 {statusCode}\r\n" +
                              $"Content-Type: {contentType}; charset=utf-8\r\n" +
                              $"Content-Length: {bodyBytes.Length}\r\n" +
-                             "Access-Control-Allow-Origin: *\r\n" +
                              "Connection: close\r\n\r\n";
                              
             byte[] headerBytes = Encoding.UTF8.GetBytes(headers);
@@ -174,20 +173,20 @@ public class SyncManager
         string json = JsonSerializer.Serialize(plainEntries);
         byte[] plaintext = Encoding.UTF8.GetBytes(json);
         
-        using var aes = Aes.Create();
-        aes.Key = _ephemeralKey!;
-        aes.Mode = CipherMode.CBC;
-        aes.Padding = PaddingMode.PKCS7;
-        aes.GenerateIV();
+        byte[] nonce = RandomNumberGenerator.GetBytes(12);
+        byte[] ciphertext = new byte[plaintext.Length];
+        byte[] tag = new byte[16];
         
-        using var encryptor = aes.CreateEncryptor();
-        byte[] ciphertext = encryptor.TransformFinalBlock(plaintext, 0, plaintext.Length);
+        using (var aes = new AesGcm(_ephemeralKey!, tag.Length))
+        {
+            aes.Encrypt(nonce, plaintext, ciphertext, tag);
+        }
         
         var payload = new SyncPayload
         {
-            Nonce = Convert.ToBase64String(aes.IV),
+            Nonce = Convert.ToBase64String(nonce),
             Ciphertext = Convert.ToBase64String(ciphertext),
-            Tag = ""
+            Tag = Convert.ToBase64String(tag)
         };
         
         CryptographicOperations.ZeroMemory(plaintext);
@@ -202,7 +201,6 @@ public class SyncManager
     <meta charset=""UTF-8"">
     <meta name=""viewport"" content=""width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"">
     <title>MysticVault</title>
-    <script src=""https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js""></script>
     <style>
         :root { --bg: #121212; --card: #1E1E1E; --text: #E0E0E0; --accent: #BB86FC; }
         body { font-family: -apple-system, BlinkMacSystemFont, ""Segoe UI"", Roboto, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
@@ -230,24 +228,42 @@ public class SyncManager
             }
             
             try {
+                // Wipe key from browser history immediately to prevent key leakage
+                history.replaceState(null, """", "" "");
+                
                 const b64Key = decodeURIComponent(hash.substring(5));
-                const key = CryptoJS.enc.Base64.parse(b64Key);
+                const keyStr = atob(b64Key);
+                const keyBuf = new Uint8Array(keyStr.length);
+                for(let i=0; i<keyStr.length; i++) keyBuf[i] = keyStr.charCodeAt(i);
+                
+                const cryptoKey = await window.crypto.subtle.importKey(
+                    ""raw"", keyBuf, { name: ""AES-GCM"" }, false, [""decrypt""]
+                );
                 
                 const res = await fetch('/api/vault');
                 const payload = await res.json();
                 
-                const iv = CryptoJS.enc.Base64.parse(payload.Nonce);
-                const cipherParams = CryptoJS.lib.CipherParams.create({
-                    ciphertext: CryptoJS.enc.Base64.parse(payload.Ciphertext)
-                });
+                const ivStr = atob(payload.Nonce);
+                const iv = new Uint8Array(ivStr.length);
+                for(let i=0; i<ivStr.length; i++) iv[i] = ivStr.charCodeAt(i);
                 
-                const decrypted = CryptoJS.AES.decrypt(cipherParams, key, {
-                    iv: iv,
-                    mode: CryptoJS.mode.CBC,
-                    padding: CryptoJS.pad.Pkcs7
-                });
+                const cipherStr = atob(payload.Ciphertext);
+                const cipherBuf = new Uint8Array(cipherStr.length);
+                for(let i=0; i<cipherStr.length; i++) cipherBuf[i] = cipherStr.charCodeAt(i);
                 
-                const jsonText = decrypted.toString(CryptoJS.enc.Utf8);
+                const tagStr = atob(payload.Tag);
+                const tagBuf = new Uint8Array(tagStr.length);
+                for(let i=0; i<tagStr.length; i++) tagBuf[i] = tagStr.charCodeAt(i);
+                
+                const combined = new Uint8Array(cipherBuf.length + tagBuf.length);
+                combined.set(cipherBuf);
+                combined.set(tagBuf, cipherBuf.length);
+                
+                const decrypted = await window.crypto.subtle.decrypt(
+                    { name: ""AES-GCM"", iv: iv }, cryptoKey, combined
+                );
+                
+                const jsonText = new TextDecoder().decode(decrypted);
                 window.vaultData = JSON.parse(jsonText);
                 
                 renderVault('');
