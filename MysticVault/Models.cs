@@ -91,9 +91,12 @@ public class EntryJsonConverter : JsonConverter<Entry>
     {
         writer.WriteStartObject();
         writer.WriteString("Username", value.Username);
-        writer.WriteString("Password", value.GetPassword());
+        value.UsePassword(p => writer.WriteString("Password", p));
         writer.WriteString("Website", value.Website);
-        writer.WriteString("PasswordHash", Convert.ToBase64String(value.PasswordHash ?? SHA256.HashData(Encoding.UTF8.GetBytes(value.GetPassword()))));
+        byte[]? hash = value.PasswordHash;
+        if (hash == null)
+            value.UsePassword(p => hash = SHA256.HashData(Encoding.UTF8.GetBytes(p)));
+        writer.WriteString("PasswordHash", Convert.ToBase64String(hash!));
         writer.WriteEndObject();
     }
 }

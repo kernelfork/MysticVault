@@ -17,15 +17,10 @@ public static class AntiDebug
     private static extern int NtQueryInformationProcess(IntPtr processHandle, int processInformationClass, ref IntPtr processInformation, int processInformationLength, out int returnLength);
 
     [DllImport("kernel32.dll", SetLastError = true)]
-    private static extern bool SetProcessMitigationPolicy(int mitigationPolicy, ref PROCESS_MITIGATION_EXTENSION_POINT_DISABLE_POLICY lpBuffer, int dwLength);
+    private static extern bool SetProcessMitigationPolicy(int mitigationPolicy, ref uint flags, int dwLength);
 
     private const int ProcessExtensionPointDisablePolicy = 11;
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct PROCESS_MITIGATION_EXTENSION_POINT_DISABLE_POLICY
-    {
-        public uint Flags;
-    }
+    private const int ProcessStrictHandleCheckPolicy = 4;
 
     [DllImport("ntdll.dll", SetLastError = true)]
     private static extern int NtSetInformationThread(IntPtr threadHandle, int threadInformationClass, IntPtr threadInformation, int threadInformationLength);
@@ -61,8 +56,9 @@ public static class AntiDebug
 
     public static void Initialize()
     {
-        var extPolicy = new PROCESS_MITIGATION_EXTENSION_POINT_DISABLE_POLICY { Flags = 1 };
-        SetProcessMitigationPolicy(ProcessExtensionPointDisablePolicy, ref extPolicy, Marshal.SizeOf(extPolicy));
+        uint policyEnable = 1;
+        SetProcessMitigationPolicy(ProcessExtensionPointDisablePolicy, ref policyEnable, sizeof(uint));
+        SetProcessMitigationPolicy(ProcessStrictHandleCheckPolicy, ref policyEnable, sizeof(uint));
 
         NtSetInformationThread(GetCurrentThread(), ThreadHideFromDebugger, IntPtr.Zero, 0);
 

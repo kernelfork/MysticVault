@@ -471,6 +471,12 @@
                                                 <TextBlock Text="Browser Extract" FontSize="12" VerticalAlignment="Center"/>
                                             </StackPanel>
                                         </Button>
+                                        <Button Style="{StaticResource OutlineButton}" Padding="8,8" Margin="0,8,0,0" Click="CookieExtractButton_Click">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Image Source="/Assets/browser.png" Width="14" Height="14" Margin="0,0,6,0" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                                <TextBlock Text="Cookie Extract" FontSize="12" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Button>
                                         <Button Style="{StaticResource OutlineButton}" Padding="8,8" Margin="0,8,0,0" Click="SyncButton_Click">
                                             <TextBlock Text="Wi-Fi Sync to Phone" FontSize="12" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="{StaticResource AccentBrush}"/>
                                         </Button>

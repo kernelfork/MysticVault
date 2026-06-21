@@ -525,6 +525,7 @@ public partial class MainWindow : Window
 
     private void ToggleVirtualKeyboard_Click(object sender, RoutedEventArgs e)
     {
+        Entry.ZeroString(_vkPassword);
         _vkPassword = "";
         UpdateVKPreview();
         GenerateRandomKeyboard();
@@ -564,6 +565,7 @@ public partial class MainWindow : Window
 
     private void VKClear_Click(object sender, RoutedEventArgs e)
     {
+        Entry.ZeroString(_vkPassword);
         _vkPassword = "";
         UpdateVKPreview();
     }
@@ -571,6 +573,7 @@ public partial class MainWindow : Window
     private void VKDone_Click(object sender, RoutedEventArgs e)
     {
         MasterPasswordBox.Password = _vkPassword;
+        Entry.ZeroString(_vkPassword);
         _vkPassword = "";
         UpdateVKPreview();
         VirtualKeyboardOverlay.Visibility = Visibility.Collapsed;
@@ -583,6 +586,7 @@ public partial class MainWindow : Window
 
     private void VirtualKeyboardBackdrop_MouseDown(object sender, MouseButtonEventArgs e)
     {
+        Entry.ZeroString(_vkPassword);
         _vkPassword = "";
         VirtualKeyboardOverlay.Visibility = Visibility.Collapsed;
     }
@@ -712,13 +716,13 @@ public partial class MainWindow : Window
                 if (duplicates.Count < 3) duplicates.Add(kvp.Key);
             }
         }
+        CryptographicOperations.ZeroMemory(newPasswordHash);
+        if (!passwordChanged) Entry.ZeroString(password);
         if (duplicateCount > 0)
         {
             string dupSites = string.Join(", ", duplicates);
             if (duplicateCount > 3)
-            {
                 dupSites += $", and {duplicateCount - 3} more";
-            }
             VaultStatusText.Foreground = (Brush)FindResource("WarningBrush");
             VaultStatusText.Text = $"Saved '{site}'. Warning: Password reused on {dupSites}.";
         }
@@ -873,13 +877,22 @@ public partial class MainWindow : Window
         {
             try
             {
-                var exportList = _vault.Entries
-                    .Select(kvp => new ExportEntry(kvp.Key, kvp.Value.Username, kvp.Value.GetPassword(), kvp.Value.Website))
-                    .OrderBy(x => x.SiteName)
-                    .ToList();
-                string json = JsonSerializer.Serialize(exportList, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(dialog.FileName, json);
-                SetVaultStatus($"Exported {exportList.Count} entries successfully.", isError: false);
+                using var fs = new FileStream(dialog.FileName, FileMode.Create, FileAccess.Write);
+                using var writer = new Utf8JsonWriter(fs, new JsonWriterOptions { Indented = true });
+                writer.WriteStartArray();
+                int count = 0;
+                foreach (var kvp in _vault.Entries.OrderBy(x => x.Key))
+                {
+                    writer.WriteStartObject();
+                    writer.WriteString("SiteName", kvp.Key);
+                    writer.WriteString("Username", kvp.Value.Username);
+                    kvp.Value.UsePassword(p => writer.WriteString("Password", p));
+                    writer.WriteString("Website", kvp.Value.Website);
+                    writer.WriteEndObject();
+                    count++;
+                }
+                writer.WriteEndArray();
+                SetVaultStatus($"Exported {count} entries successfully.", isError: false);
             }
             catch
             {
@@ -947,11 +960,55 @@ public partial class MainWindow : Window
         }
         catch (AppBoundEncryptionException)
         {
-            MessageBox.Show("A browser (e.g. Chrome v127+) has locked down direct password access with App-Bound Encryption to prevent malware from stealing passwords.\n\nTo import your passwords, please use the browser's built-in 'Export to CSV' feature.", "App-Bound Encryption Detected", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("Chrome v127+ App-Bound Encryption was detected and could not be bypassed.\n\nMake sure Chrome is running and try again.\nIf the issue persists, use Chrome's built-in 'Export passwords' feature from chrome://password-manager/settings.", "App-Bound Encryption", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
             MessageBox.Show($"Extraction error: {ex.Message}", "MysticVault", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void CookieExtractButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var cookies = CookieExtractor.ExtractAll();
+            if (cookies.Count == 0)
+            {
+                MessageBox.Show("No cookies found in browsers, or access was blocked.", "MysticVault", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                Filter = "JSON files (*.json)|*.json",
+                FileName = "cookies_export.json"
+            };
+
+            if (dialog.ShowDialog() != true)
+                return;
+
+            using var fs = new FileStream(dialog.FileName, FileMode.Create, FileAccess.Write);
+            using var writer = new Utf8JsonWriter(fs, new JsonWriterOptions { Indented = true });
+            writer.WriteStartArray();
+            foreach (var cookie in cookies)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("host", cookie.HostKey);
+                writer.WriteString("name", cookie.Name);
+                writer.WriteString("value", cookie.Value);
+                writer.WriteString("path", cookie.Path);
+                writer.WriteBoolean("secure", cookie.IsSecure);
+                writer.WriteBoolean("httpOnly", cookie.IsHttpOnly);
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
+            SetVaultStatus($"Exported {cookies.Count} cookies to '{dialog.SafeFileName}'.", isError: false);
+            MessageBox.Show($"Extracted {cookies.Count} cookies from browsers.\n\nThe cookies have been exported to:\n{dialog.FileName}\n\nThis file contains session tokens — handle it like passwords.", "MysticVault", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Cookie extraction error: {ex.Message}", "MysticVault", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
     private void LockButton_Click(object sender, RoutedEventArgs e)

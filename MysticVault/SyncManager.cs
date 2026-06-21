@@ -153,6 +153,27 @@ public class SyncManager
         }
     }
 
+    private byte[] DeriveKeyStream(byte[] key, byte[] nonce, int length)
+    {
+        byte[] output = new byte[length];
+        int counter = 0;
+        int offset = 0;
+        while (offset < length)
+        {
+            byte[] blockInput = new byte[key.Length + nonce.Length + 4];
+            Buffer.BlockCopy(key, 0, blockInput, 0, key.Length);
+            Buffer.BlockCopy(nonce, 0, blockInput, key.Length, nonce.Length);
+            byte[] counterBytes = BitConverter.GetBytes(counter++);
+            Buffer.BlockCopy(counterBytes, 0, blockInput, key.Length + nonce.Length, 4);
+
+            byte[] hash = SHA256.HashData(blockInput);
+            int copyLen = Math.Min(hash.Length, length - offset);
+            Buffer.BlockCopy(hash, 0, output, offset, copyLen);
+            offset += copyLen;
+        }
+        return output;
+    }
+
     private string GetEncryptedVault()
     {
         if (!_vault.IsUnlocked) return "{}";
@@ -179,13 +200,14 @@ public class SyncManager
         byte[] plaintext = ms.ToArray();
 
         byte[] nonce = RandomNumberGenerator.GetBytes(12);
+        byte[] keystream = DeriveKeyStream(_ephemeralKey!, nonce, plaintext.Length);
         byte[] ciphertext = new byte[plaintext.Length];
-        byte[] tag = new byte[16];
+        for (int i = 0; i < plaintext.Length; i++)
+            ciphertext[i] = (byte)(plaintext[i] ^ keystream[i]);
 
-        using (var aes = new AesGcm(_ephemeralKey!, tag.Length))
-        {
-            aes.Encrypt(nonce, plaintext, ciphertext, tag);
-        }
+        byte[] tag;
+        using (var hmac = new HMACSHA256(_ephemeralKey!))
+            tag = hmac.ComputeHash(ciphertext);
 
         var payload = new SyncPayload
         {
@@ -227,50 +249,127 @@ public class SyncManager
     <script>
         const B64_KEY = ""___KEY___"";
 
+        function b64ToBytes(s) {
+            const str = atob(s);
+            const b = new Uint8Array(str.length);
+            for (let i = 0; i < str.length; i++) b[i] = str.charCodeAt(i);
+            return b;
+        }
+
+        function ctEq(a, b) {
+            if (a.length !== b.length) return false;
+            let d = 0;
+            for (let i = 0; i < a.length; i++) d |= a[i] ^ b[i];
+            return d === 0;
+        }
+
+        function sha256(d) {
+            const K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+            const H0 = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+            const blen = d.length * 8;
+            const pad = ((d.length + 9 + 63) & ~63) >>> 0;
+            const m = new Uint8Array(pad);
+            m.set(d);
+            m[d.length] = 0x80;
+            const dv = new DataView(m.buffer);
+            dv.setUint32(pad - 8, 0, false);
+            dv.setUint32(pad - 4, blen, false);
+            const W = new Uint32Array(64);
+            const H = H0.slice();
+            const rr = (x, n) => (x >>> n) | (x << (32 - n));
+            for (let b = 0; b < pad; b += 64) {
+                for (let t = 0; t < 16; t++) W[t] = dv.getUint32(b + t * 4, false);
+                for (let t = 16; t < 64; t++) {
+                    const w0 = rr(W[t-15],7) ^ rr(W[t-15],18) ^ (W[t-15]>>>3);
+                    const w1 = rr(W[t-2],17) ^ rr(W[t-2],19) ^ (W[t-2]>>>10);
+                    W[t] = (W[t-16] + w0 + W[t-7] + w1) | 0;
+                }
+                let a=H[0],b=H[1],c=H[2],d=H[3],e=H[4],f=H[5],g=H[6],h=H[7];
+                for (let t = 0; t < 64; t++) {
+                    const S1 = rr(e,6) ^ rr(e,11) ^ rr(e,25);
+                    const ch = (e & f) ^ ((~e) & g);
+                    const t1 = (h + S1 + ch + K[t] + W[t]) | 0;
+                    const S0 = rr(a,2) ^ rr(a,13) ^ rr(a,22);
+                    const maj = (a & b) ^ (a & c) ^ (b & c);
+                    const t2 = (S0 + maj) | 0;
+                    h=g; g=f; f=e; e=(d+t1)|0; d=c; c=b; b=a; a=(t1+t2)|0;
+                }
+                H[0]=(H[0]+a)|0; H[1]=(H[1]+b)|0; H[2]=(H[2]+c)|0; H[3]=(H[3]+d)|0;
+                H[4]=(H[4]+e)|0; H[5]=(H[5]+f)|0; H[6]=(H[6]+g)|0; H[7]=(H[7]+h)|0;
+            }
+            const out = new Uint8Array(32);
+            const odv = new DataView(out.buffer);
+            for (let i = 0; i < 8; i++) odv.setUint32(i * 4, H[i], false);
+            return out;
+        }
+
+        function hmacSha256(key, msg) {
+            if (key.length > 64) key = sha256(key);
+            const kp = new Uint8Array(64);
+            kp.set(key);
+            const ipad = new Uint8Array(64);
+            const opad = new Uint8Array(64);
+            for (let i = 0; i < 64; i++) {
+                ipad[i] = kp[i] ^ 0x36;
+                opad[i] = kp[i] ^ 0x5c;
+            }
+            const inner = new Uint8Array(64 + msg.length);
+            inner.set(ipad);
+            inner.set(msg, 64);
+            const ih = sha256(inner);
+            const outer = new Uint8Array(64 + 32);
+            outer.set(opad);
+            outer.set(ih, 64);
+            return sha256(outer);
+        }
+
+        function keyStream(key, nonce, len) {
+            const inplen = key.length + nonce.length + 4;
+            const blocks = Math.ceil(len / 32);
+            const out = new Uint8Array(blocks * 32);
+            const inp = new Uint8Array(inplen);
+            inp.set(key);
+            inp.set(nonce, key.length);
+            const dv = new DataView(inp.buffer);
+            for (let i = 0; i < blocks; i++) {
+                dv.setUint32(key.length + nonce.length, i, true);
+                const h = sha256(inp);
+                out.set(h, i * 32);
+            }
+            return out.slice(0, len);
+        }
+
         async function init() {
             try {
-                const keyStr = atob(B64_KEY);
-                const keyBuf = new Uint8Array(keyStr.length);
-                for(let i=0; i<keyStr.length; i++) keyBuf[i] = keyStr.charCodeAt(i);
-                
-                const cryptoKey = await window.crypto.subtle.importKey(
-                    ""raw"", keyBuf, { name: ""AES-GCM"" }, false, [""decrypt""]
-                );
-                
+                const key = b64ToBytes(B64_KEY);
                 const res = await fetch('/api/vault');
                 const payload = await res.json();
-                
-                const ivStr = atob(payload.Nonce);
-                const iv = new Uint8Array(ivStr.length);
-                for(let i=0; i<ivStr.length; i++) iv[i] = ivStr.charCodeAt(i);
-                
-                const cipherStr = atob(payload.Ciphertext);
-                const cipherBuf = new Uint8Array(cipherStr.length);
-                for(let i=0; i<cipherStr.length; i++) cipherBuf[i] = cipherStr.charCodeAt(i);
-                
-                const tagStr = atob(payload.Tag);
-                const tagBuf = new Uint8Array(tagStr.length);
-                for(let i=0; i<tagStr.length; i++) tagBuf[i] = tagStr.charCodeAt(i);
-                
-                const combined = new Uint8Array(cipherBuf.length + tagBuf.length);
-                combined.set(cipherBuf);
-                combined.set(tagBuf, cipherBuf.length);
-                
-                const decrypted = await window.crypto.subtle.decrypt(
-                    { name: ""AES-GCM"", iv: iv }, cryptoKey, combined
-                );
-                
-                const jsonText = new TextDecoder().decode(decrypted);
+
+                const nonce = b64ToBytes(payload.Nonce);
+                const ciphertext = b64ToBytes(payload.Ciphertext);
+                const tag = b64ToBytes(payload.Tag);
+
+                const expected = hmacSha256(key, ciphertext);
+                if (!ctEq(tag, expected)) {
+                    document.getElementById('vault').innerText = 'Integrity check failed.';
+                    return;
+                }
+
+                const ks = keyStream(key, nonce, ciphertext.length);
+                const pt = new Uint8Array(ciphertext.length);
+                for (let i = 0; i < ciphertext.length; i++) pt[i] = ciphertext[i] ^ ks[i];
+
+                const jsonText = new TextDecoder().decode(pt);
                 window.vaultData = JSON.parse(jsonText);
-                
+
                 renderVault('');
-                
+
                 document.getElementById('search').addEventListener('input', (e) => {
                     renderVault(e.target.value.toLowerCase());
                 });
-                
+
             } catch (err) {
-                document.getElementById('vault').innerText = ""Decryption failed. Ensure you are on the same Wi-Fi and scanned the correct code. Error: "" + err;
+                document.getElementById('vault').innerText = 'Decryption failed: ' + err;
             }
         }
 

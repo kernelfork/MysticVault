@@ -7,7 +7,7 @@ A desktop-native, strictly offline password manager for Windows built with WPF a
 - **Local Storage**: Everything is stored in a local `vault.dat` file encrypted with AES-256-GCM.
 - **Dual-Key Cryptography**: The vault uses Argon2id for password hashing and combines it with Windows DPAPI. This means the vault is cryptographically bound to your specific Windows user profile—if someone steals your `vault.dat` and password, they still can't unlock it on another PC.
 - **Global Auto-Type**: Press `Ctrl+Shift+V` from anywhere in Windows. A mini search window pops up, and hitting Enter will auto-type your credentials into the background application using Low-Level Win32 Hooks.
-- **Local Wi-Fi Sync**: A built-in local TCP server allows you to sync your vault to your phone over Wi-Fi. Scanning the QR code sends the vault to your mobile browser. The decryption key is passed in the URL fragment (`#key=`) so it never touches the network.
+- **Local Wi-Fi Sync**: A built-in local TCP server allows you to sync your vault to your phone over Wi-Fi. Scanning the QR code sends the vault to your mobile browser. The decryption key is embedded directly in the served HTML as a JavaScript constant so QR-scanning apps (which strip URL fragments) still see it.
 - **System Tray**: Closes to the system tray so it can run silently in the background for auto-typing.
 - **Browser Extraction**: Securely decrypts and imports existing passwords from Chrome, Edge, and Brave via their local sqlite databases.
 
@@ -44,7 +44,7 @@ MysticVault is designed to give you absolute control over your digital security.
 9. **Idle Auto-Lock**: It monitors your global system activity and will automatically seal the vault if you step away from your computer for 5 minutes.
 
 ### How it Works
-Under the hood, MysticVault is powered by .NET 8 and WPF. The cryptography engine leverages `System.Security.Cryptography` to perform AES-256-GCM encryption. When you launch the app, I utilize native `user32.dll` hooks to capture global keyboard shortcuts, and `SendInput` to simulate physical keystrokes for auto-typing. The mobile sync spins up a localized `TcpListener` that hosts a bespoke Single-Page Application (SPA), using the URL `#fragment` trick to pass the raw AES decryption key directly into the device's hardware, fully bypassing network interception.
+Under the hood, MysticVault is powered by .NET 8 and WPF. The cryptography engine leverages `System.Security.Cryptography` to perform AES-256-GCM encryption. When you launch the app, I utilize native `user32.dll` hooks to capture global keyboard shortcuts, and `SendInput` to simulate physical keystrokes for auto-typing. The mobile sync spins up a localized `TcpListener` that hosts a bespoke Single-Page Application (SPA). The ephemeral decryption key is embedded in the served HTML as a JavaScript constant (`B64_KEY`), and the client decrypts entries entirely in-browser using pure-JS SHA-256 keystream XOR + HMAC-SHA256 — no `window.crypto.subtle` dependency, no third-party library, works over plain HTTP on any browser.
 
 ## Advanced
 Because standard cryptography isn't enough, I engineered three aggressive defense mechanisms into the core engine to defend against memory-dumping and reverse-engineering:

